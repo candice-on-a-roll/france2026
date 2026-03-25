@@ -89,7 +89,7 @@ select.input-field {
 <div id="expenses-page" style="display:none;"><div id="expenses-content"></div></div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxuK-t8ImRa34yE6GLdDRD4Al3Gt-qILqopl1_C-W7D_KvwkyVBf8ed-fNcuh5hHNQTPw/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYKXXhptVWefMeOax19EL98UbIYDJYCq_y1rIvHoMY4clw7XCySNJ6lHUvTbbuelOoVw/exec";
 const peopleColors = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
 let expenses = [];
 let paid = "", shared = [];
@@ -139,10 +139,12 @@ function fmtT(raw) {
     }
     // Plain "HH:MM" string
     if (/^\d{1,2}:\d{2}/.test(str)) return str.substring(0, 5);
-    // Fallback for raw UTC ISO strings — swap 1899 base date to get modern CET/CEST offset
-    let iso = str;
-    if (iso.startsWith('1899-12-30T')) iso = iso.replace('1899-12-30', '2026-06-01');
-    const d = new Date(iso);
+    // For 1899-12-30 base dates (Google Sheets time-only epoch): do NOT swap the year.
+    // Apps Script encodes "13:30 Europe/Paris" using historical Paris LMT (UTC+0:09:21),
+    // so "13:30" stored cell → "13:20:39 UTC". Intl with Europe/Paris on the same 1899
+    // date re-applies that same historical LMT and recovers "13:30" exactly.
+    // Swapping to a modern date would apply CEST (+2h) instead and give wrong results.
+    const d = new Date(str);
     if (isNaN(d.getTime())) return '--:--';
     return new Intl.DateTimeFormat('en-GB', {
         timeZone: PARIS_TZ, hour: '2-digit', minute: '2-digit', hour12: false
@@ -165,11 +167,11 @@ function getField(row, ...keys) {
 
 // ── Data fetching ──────────────────────────────────────────────────────────
 async function fetchData(sheet) {
-    const cacheKey = `cache_v6_${sheet}`;
-    const timeKey  = `time_v6_${sheet}`;
+    const cacheKey = `cache_v9_${sheet}`;
+    const timeKey  = `time_v9_${sheet}`;
     const lastTime = localStorage.getItem(timeKey) || "0";
     try {
-        const res    = await fetch(`${SCRIPT_URL}?sheet=${sheet}&lastUpdate=${lastTime}`);
+        const res    = await fetch(`${SCRIPT_URL}?sheet=${sheet}&lastUpdate=${lastTime}&t=${Date.now()}`);
         const result = await res.json();
         if (result.noUpdate) return JSON.parse(localStorage.getItem(cacheKey));
         localStorage.setItem(cacheKey, JSON.stringify(result));
