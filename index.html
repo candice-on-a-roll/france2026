@@ -44,117 +44,61 @@ label, option, .history-date { text-transform: capitalize !important; }
 </div>
 
 <script>
-let SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAm61tJQlhL8bGN1OV-1mKc1GH7hQA2OsI4Sw82vqH6CWqTgBJXXF_m6dFCBGZa0pgfw/exec";
+let SCRIPT_URL = "https://script.google.com/macros/s/AKfycby197Wu8ZbvibClK36DiXXIpYvf2fxSCQcF2szHffwMY4Ov-AjgX9BGK42z-qk7WDJ9lA/exec";
 let people = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
 let expenses = JSON.parse(localStorage.getItem('france_expenses') || "[]");
 let paid = "", shared = [];
 
 // 【核心】切換 Tab
-// 修改 showTab，等切換到 Expenses 時都去攞資料
 function showTab(tabName) {
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    document.getElementById("tab-"+tabName).classList.add("active");
-    document.getElementById("itinerary-page").style.display = (tabName === 'itinerary' ? "block" : "none");
-    document.getElementById("expenses-page").style.display = (tabName === 'expenses' ? "block" : "none");
+    const itinPage = document.getElementById("itinerary-page");
+    const expPage = document.getElementById("expenses-page");
     
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+
     if (tabName === 'itinerary') {
-        refreshItinerary(); 
+        itinPage.style.display = "block";
+        expPage.style.display = "none";
+        document.getElementById("tab-itinerary").classList.add("active");
+        refreshItinerary();
     } else {
-        fetchExpenses(); // 新增：切換到 Expenses Tab 時去 Sheets 攞數
+        itinPage.style.display = "none";
+        expPage.style.display = "block";
+        document.getElementById("tab-expenses").classList.add("active");
+        // 先顯示本地數據，再去 Google Sheets 同步
+        renderExpenses();
+        fetchExpenses();
     }
 }
 
-
-// 2. 儲存開支時，先存本地，再傳上網
-async function saveExp(id) {
-    let amt = document.getElementById('amount').value;
-    if(!amt || !paid || !shared.length) return alert("Missing fields");
-
-    let newExp = {
-        id: id || Date.now(),
-        date: document.getElementById('exp-date').value.split('-').reverse().join('/'),
-        item: document.getElementById('item').value,
-        amount: parseFloat(amt),
-        currency: document.getElementById('currency').value,
-        paid: paid,
-        shared: [...shared]
-    };
-
-    // 【核心改動】：先更新本地變數，確保畫面即時見到
-    if(id) expenses = expenses.filter(e => e.id != id);
-    expenses.push(newExp);
-    localStorage.setItem('france_expenses', JSON.stringify(expenses));
-    
-    // 即刻返去 Expenses 頁面睇到條數
-    showTab('expenses');
-
-    // 背景傳去 Google Sheet
-    try {
-        await fetch(SCRIPT_URL, {
-            method: "POST",
-            mode: "no-cors",
-            body: JSON.stringify({
-                sheet: "Expenses",
-                action: "add",
-                rowData: [newExp.date, newExp.item, newExp.currency, newExp.amount, "", 8.4, newExp.paid, newExp.shared.join(", ")]
-            })
-        });
-    } catch (e) { console.log("Cloud sync failed, kept in local."); }
-}
-
-// 【核心修復 1】Itinerary 讀取
+// ==========================================
+// 1. ITINERARY 模組
+// ==========================================
 async function refreshItinerary() {
     const listEl = document.getElementById("itinerary-list");
-    // 先攞 Cache
     let cached = localStorage.getItem('france_itin_cache');
-    if (cached) renderItinHTML(JSON.parse(cached));
+    
+    // 如果有緩存，即刻秒開畫面
+    if (cached) {
+        renderItineraryHTML(JSON.parse(cached));
+    } else {
+        listEl.innerHTML = "<p style='text-align:center; padding:30px; color:#999; font-size:14px;'>Loading your journey... 🇫🇷</p>";
+    }
     
     try {
         const res = await fetch(`${SCRIPT_URL}?sheet=Itinerary`);
         const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        localStorage.setItem('france_itin_cache', JSON.stringify(data));
-        renderItinHTML(data);
-    } catch (e) {
-        console.error("Itinerary Fetch Error:", e);
-        // 如果連 Cache 都冇先顯示 Error
-        if (!cached) listEl.innerHTML = `<p style="text-align:center;color:red;">Sync Error: ${e.message}</p>`;
-    }
-}
-
-// 【核心修復 2】Expenses 讀取
-async function fetchExpenses() {
-    // 先攞手機 Cache 墊底，確保唔會「乜都無」
-    let localData = localStorage.getItem('france_expenses');
-    if (localData) {
-        expenses = JSON.parse(localData);
-        renderExpenses();
-    }
-
-    try {
-        const res = await fetch(`${SCRIPT_URL}?sheet=Expenses`);
-        const data = await res.json();
         
-        if (Array.isArray(data) && data.length > 0) {
-            // 重新對應 Sheet 欄位 (請確保你 Sheet header 叫 Date, Category, Currency, Amount, PaidBy, SharedWith)
-            expenses = data.map((row, index) => ({
-                id: Date.now() + index,
-                date: row.Date || "", 
-                item: row.Category || "",
-                currency: row.Currency || "HKD",
-                amount: parseFloat(row.Amount || 0),
-                paid: row.PaidBy || "",
-                shared: (row.SharedWith || "").toString().split(',').map(s => s.trim())
-            }));
-            localStorage.setItem('france_expenses', JSON.stringify(expenses));
-            renderExpenses();
+        if (!data.error) {
+            localStorage.setItem('france_itin_cache', JSON.stringify(data));
+            renderItineraryHTML(data);
         }
     } catch (e) {
-        console.error("Expenses Fetch Error:", e);
+        if (!cached) listEl.innerHTML = `<p style='text-align:center; color:red; padding:20px;'>Error: ${e.message}</p>`;
     }
 }
 
-// 抽離出嚟做專門渲染 HTML 嘅 Function，方便 Cache 同 Live 通用
+// 渲染 Itinerary 畫面 (修復咗 is not defined 同 日期問題)
 function renderItineraryHTML(data) {
     const listEl = document.getElementById("itinerary-list");
     const grouped = data.reduce((acc, obj) => {
@@ -164,29 +108,37 @@ function renderItineraryHTML(data) {
             d.setUTCHours(d.getUTCHours() + 8); 
             dateStr = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
         }
+
         if (!acc[dateStr]) {
             acc[dateStr] = { locations: new Set(), allPeople: new Set(), items: [] };
         }
+        
         let timeDisplay = obj.Time;
         if (obj.Time && obj.Time.includes('T')) {
             timeDisplay = new Date(obj.Time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
         }
+
         if (obj.Location) acc[dateStr].locations.add(obj.Location);
         if (obj.People) obj.People.split(',').forEach(p => acc[dateStr].allPeople.add(p.trim()));
-        acc[dateStr].items.push({ ...obj, time: timeDisplay, peopleList: obj.People ? obj.People.split(',').map(p => p.trim()) : [] });
+
+        acc[dateStr].items.push({
+            ...obj,
+            time: timeDisplay,
+            peopleList: obj.People ? obj.People.split(',').map(p => p.trim()) : []
+        });
         return acc;
     }, {});
 
     let html = "";
     Object.keys(grouped).forEach((date, index) => {
         const day = grouped[date];
-        const locationText = Array.from(day.locations).join(' & ');
+        const locationText = Array.from(day.locations).join(' & '); 
         const peopleIcons = Array.from(day.allPeople).map(p => 
             `<span class="person" style="background:${people[p] || '#ccc'}; width:22px; height:22px; font-size:9px; margin:0 1px;">${p}</span>`
         ).join('');
 
         html += `
-        <div class="card" style="margin-bottom:12px; padding:0; border:1px solid #eee; overflow:hidden;">
+        <div class="card" style="margin-bottom:12px; padding:0; border:1px solid #eee; overflow:hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
             <div onclick="toggleDayDetail(${index})" style="padding:15px; cursor:pointer; background:#fff; display:flex; justify-content:space-between; align-items:center;">
                 <div style="flex:1;">
                     <div style="font-weight:700; font-size:16px; color:var(--navy);">${date}</div>
@@ -197,6 +149,7 @@ function renderItineraryHTML(data) {
                     <span id="arrow-${index}" style="font-size:12px; color:#ccc; transition:0.3s;">▼</span>
                 </div>
             </div>
+
             <div id="detail-${index}" style="display:none; padding:0 15px 15px; background:#fafafa; border-top:1px solid #f5f5f5;">
                 ${day.items.map((item, i) => `
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; ${i !== day.items.length-1 ? 'border-bottom:1px solid #eee' : ''}">
@@ -215,24 +168,64 @@ function renderItineraryHTML(data) {
             </div>
         </div>`;
     });
+    
     listEl.innerHTML = html || "<p style='text-align:center; padding:20px;'>No data found.</p>";
 }
 
-// 摺疊控制函數
 function toggleDayDetail(index) {
     const el = document.getElementById(`detail-${index}`);
     const arrow = document.getElementById(`arrow-${index}`);
     const isOpen = el.style.display === "block";
-    
     el.style.display = isOpen ? "none" : "block";
     arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
 }
 
-// 【2】Expenses 渲染
+
+// ==========================================
+// 2. EXPENSES 模組 (加入防彈版資料讀取)
+// ==========================================
+async function fetchExpenses() {
+    try {
+        const res = await fetch(`${SCRIPT_URL}?sheet=Expenses`);
+        const data = await res.json();
+        
+        if (Array.isArray(data) && data.length > 0) {
+            // 防彈讀取：不論你 Sheet 的欄位名稱有沒有空格，都讀得到！
+            expenses = data.map((row, index) => {
+                const getVal = (keys) => {
+                    for(let k of keys) { if(row[k] !== undefined) return row[k]; }
+                    return "";
+                };
+                
+                let p = getVal(["Paid By", "PaidBy", "paid"]).toString().trim();
+                let s = getVal(["Shared With", "SharedWith", "shared"]).toString();
+                let amt = parseFloat(getVal(["Amount", "amount"]) || 0);
+                
+                return {
+                    id: Date.now() + index,
+                    date: getVal(["Date", "date"]),
+                    item: getVal(["Category", "Item", "item", "category"]),
+                    currency: getVal(["Currency", "currency"]) || "HKD",
+                    amount: amt,
+                    notes: getVal(["Notes", "notes"]),
+                    paid: p,
+                    shared: s.split(',').map(x => x.trim()).filter(x => x), // 清除空白
+                    settled: (getVal(["Settled", "settled"]) === "Yes")
+                };
+            }).filter(e => e.paid !== "" && e.amount > 0); // 只保留有效數據
+            
+            localStorage.setItem('france_expenses', JSON.stringify(expenses));
+            renderExpenses();
+        }
+    } catch (e) {
+        console.error("Sync expenses failed:", e);
+    }
+}
+
 function renderExpenses() {
     const { netBalances, displayMatrix } = getAccurateMatrix();
     let html = `<div class="card">
-        <b style="font-size:12px; color:#aaa;">Settlement Matrix (HKD)</b>
+        <b style="font-size:12px; color:#aaa;">SETTLEMENT MATRIX (HKD)</b>
         <div style="overflow-x:auto; margin-top:10px;">
             <table class="matrix-table">
                 <thead><tr><th></th>${Object.keys(people).map(p=>`<th><span class="person" style="background:${people[p]}">${p}</span></th>`).join("")}</tr></thead>
@@ -285,17 +278,26 @@ function renderHistoryList() {
     return html;
 }
 
-// 【3】計算矩陣
+// 修復 Matrix 變零問題：加入強效名字符號對齊
 function getAccurateMatrix() {
     let net = {}, raw = {};
     Object.keys(people).forEach(p => { net[p] = 0; raw[p] = {}; Object.keys(people).forEach(p2 => raw[p][p2] = 0); });
+    
     expenses.forEach(e => {
         if (e.settled) return;
         let total = e.currency === "EUR" ? e.amount * 8.4 : e.amount;
-        let share = total / e.shared.length;
-        e.shared.forEach(p => { net[p] -= share; if(p !== e.paid) raw[p][e.paid] += share; });
-        net[e.paid] += total;
+        let validSharers = e.shared.filter(p => people[p]); // 確保名字喺清單入面
+        
+        if (validSharers.length > 0 && people[e.paid]) {
+            let share = total / validSharers.length;
+            validSharers.forEach(p => { 
+                net[p] -= share; 
+                if(p !== e.paid) raw[p][e.paid] += share; 
+            });
+            net[e.paid] += total;
+        }
     });
+    
     let display = JSON.parse(JSON.stringify(raw));
     let keys = Object.keys(people);
     for(let i=0; i<keys.length; i++) {
@@ -308,16 +310,16 @@ function getAccurateMatrix() {
     return { netBalances: net, displayMatrix: display };
 }
 
-// 【4】Add/Amend Form
-// 【1】修改 openAdd 增加 Notes 欄位
+// ==========================================
+// 3. 表單與儲存
+// ==========================================
 function openAdd(editId = null) {
     const isEdit = (editId !== null);
     let exp = isEdit ? expenses.find(e => e.id == editId) : null;
     paid = isEdit ? exp.paid : "";
     shared = isEdit ? [...exp.shared] : [];
     
-    // 處理日期顯示
-    const displayDate = isEdit ? exp.date.split('/').reverse().join('-') : new Date().toISOString().split('T')[0];
+    const displayDate = isEdit && exp.date.includes('/') ? exp.date.split('/').reverse().join('-') : new Date().toISOString().split('T')[0];
 
     let html = `
     <div class="card" style="max-width:600px; margin:20px auto; padding:25px;">
@@ -326,10 +328,12 @@ function openAdd(editId = null) {
         </h2>
         
         <div style="display:flex; gap:15px; margin-bottom:15px;">
-            <div style="flex:1;"> <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Date</label>
+            <div style="flex:1;">
+                <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Date</label>
                 <input id="exp-date" type="date" class="input-small" value="${displayDate}">
             </div>
-            <div style="flex:1;"> <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Category</label>
+            <div style="flex:1;">
+                <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Category</label>
                 <select id="item" class="input-small">
                     <option value="🍽️ Dining" ${exp?.item.includes('Dining')?'selected':''}>🍽️ Dining</option>
                     <option value="🚗 Transport" ${exp?.item.includes('Transport')?'selected':''}>🚗 Transport</option>
@@ -384,7 +388,6 @@ function openAdd(editId = null) {
     document.getElementById("expenses-content").innerHTML = html;
 }
 
-// 【2】修改 saveExpense 確保 Notes 會儲存並傳到 Sheets
 async function saveExpense(editId) {
     const amt = document.getElementById("amount").value;
     const notesVal = document.getElementById("notes").value;
@@ -398,7 +401,7 @@ async function saveExpense(editId) {
         item: document.getElementById("item").value,
         amount: parseFloat(amt),
         currency: document.getElementById("currency").value,
-        notes: notesVal, // 儲存 Notes
+        notes: notesVal,
         paid: paid,
         shared: [...shared],
         settled: document.getElementById("settled").checked
@@ -407,7 +410,10 @@ async function saveExpense(editId) {
     expenses.push(newExp);
     localStorage.setItem('france_expenses', JSON.stringify(expenses));
     
-    // 傳送到 Google Sheets (rowData 順序要對應你張圖: Date, Category, Currency, Amount, Notes, Rate...)
+    // 即刻更新畫面
+    showTab('expenses');
+    
+    // 背景上傳 Google Sheets
     fetch(SCRIPT_URL, { 
         method: "POST", 
         mode: "no-cors", 
@@ -427,8 +433,6 @@ async function saveExpense(editId) {
             ] 
         })
     });
-    
-    showTab('expenses');
 }
 
 function deleteExpense(id) { if(confirm("Delete?")) { expenses = expenses.filter(e => e.id != id); localStorage.setItem('france_expenses', JSON.stringify(expenses)); showTab('expenses'); } }
