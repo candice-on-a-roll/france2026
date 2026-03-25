@@ -79,8 +79,8 @@ select.input-field {
 .itin-time { color: var(--wine); font-weight: 700; font-size: 13px; min-width: 46px; padding-top: 2px; }
 .map-btn { display: inline-flex; align-items: center; gap: 3px; background: #f0f4ff; color: #3498db; border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; text-decoration: none; cursor: pointer; white-space: nowrap; }
 
-.matrix-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
-.matrix-table th, .matrix-table td { padding: 6px 2px; border: 1px solid #f0f0f0; text-align: center; white-space: nowrap; overflow: hidden; }
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: auto; }
+.matrix-table th, .matrix-table td { padding: 6px 4px; border: 1px solid #f0f0f0; text-align: center; white-space: nowrap; }
 
 .form-row { display: flex; gap: 12px; margin-bottom: 15px; }
 .form-row > div { flex: 1; }
@@ -174,11 +174,6 @@ function fmtT(raw) {
 
 function fmtN(num) {
     return parseFloat(num || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-function fmtK(num) {
-    const n = parseFloat(num || 0);
-    if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
-    return Math.round(n).toString();
 }
 
 // ── Field accessor — handles column-header name variations from the sheet ──
@@ -353,8 +348,8 @@ async function renderExpView(skipFetch = false) {
             ${Object.keys(peopleColors).map(p1 => `<tr>
                 <td><div class="person" style="background:${peopleColors[p1]}; width:20px; height:20px; font-size:8px; margin:auto; cursor:default;">${p1}</div></td>
                 ${Object.keys(peopleColors).map(p2 => p1===p2
-                    ? `<td style="font-weight:700; color:${net[p1]>=0?'#27ae60':'#e74c3c'}">${fmtK(net[p1])}</td>`
-                    : `<td style="color:#e74c3c">${matrix[p1][p2]>0?'-'+fmtK(matrix[p1][p2]):'-'}</td>`
+                    ? `<td style="font-weight:700; color:${net[p1]>=0?'#27ae60':'#e74c3c'}">${fmtN(net[p1])}</td>`
+                    : `<td style="color:#e74c3c">${matrix[p1][p2]>0?'-'+fmtN(matrix[p1][p2]):'-'}</td>`
                 ).join("")}
             </tr>`).join("")}
         </table></div>
