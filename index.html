@@ -44,7 +44,7 @@ label, option, .history-date { text-transform: capitalize !important; }
 </div>
 
 <script>
-let SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyjWMRaRIO_zUH2r3Thp9Y6KApKWtD81aji67qh_Ux3Pmo_rCi7i2_KYcdNCBXWlwOXaA/exec";
+let SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAm61tJQlhL8bGN1OV-1mKc1GH7hQA2OsI4Sw82vqH6CWqTgBJXXF_m6dFCBGZa0pgfw/exec";
 let people = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
 let expenses = JSON.parse(localStorage.getItem('france_expenses') || "[]");
 let paid = "", shared = [];
@@ -64,43 +64,6 @@ function showTab(tabName) {
     }
 }
 
-// 新增：去 Google Sheets 攞返所有開支紀錄
-// 1. 每次開 Expenses Tab 都會執行呢個
-async function fetchExpenses() {
-    const contentEl = document.getElementById("expenses-content");
-    
-    // 先攞手機 Cache 出嚟顯示（確保唔會空白）
-    let localData = localStorage.getItem('france_expenses');
-    if (localData) {
-        expenses = JSON.parse(localData);
-        renderExpenses();
-    }
-
-    try {
-        // 去 Google Sheets 攞返所有歷史紀錄
-        const res = await fetch(`${SCRIPT_URL}?sheet=Expenses`);
-        const data = await res.json();
-        
-        if (data && data.length > 0) {
-            // 將 Sheets 的格式對應返 App
-            expenses = data.map((row, index) => ({
-                id: Date.now() + index,
-                date: row.Date || row["Date"], 
-                item: row.Category || row["Category"],
-                currency: row.Currency || row["Currency"],
-                amount: parseFloat(row.Amount || row["Amount"]),
-                paid: row.PaidBy || row["PaidBy"],
-                shared: (row.SharedWith || row["SharedWith"] || "").split(',').map(s => s.trim())
-            }));
-            
-            // 存入手機並更新畫面
-            localStorage.setItem('france_expenses', JSON.stringify(expenses));
-            renderExpenses();
-        }
-    } catch (e) {
-        console.error("Sync failed:", e);
-    }
-}
 
 // 2. 儲存開支時，先存本地，再傳上網
 async function saveExp(id) {
@@ -139,34 +102,55 @@ async function saveExp(id) {
     } catch (e) { console.log("Cloud sync failed, kept in local."); }
 }
 
-// 【1】Itinerary 渲染
-// 【1】Itinerary 渲染 (加入 Cache 緩存邏輯)
+// 【核心修復 1】Itinerary 讀取
 async function refreshItinerary() {
     const listEl = document.getElementById("itinerary-list");
-    
-    // 1. 先拎手機入面嘅舊數據 (Cache)
-    let cachedData = localStorage.getItem('france_itinerary_cache');
-    if (cachedData) {
-        renderItineraryHTML(JSON.parse(cachedData)); // 如果有舊數據，即刻顯示 (秒開)
-    } else {
-        listEl.innerHTML = "<p style='text-align:center; padding:30px; color:#999; font-size:14px;'>Loading your journey... 🇫🇷</p>";
-    }
+    // 先攞 Cache
+    let cached = localStorage.getItem('france_itin_cache');
+    if (cached) renderItinHTML(JSON.parse(cached));
     
     try {
-        // 2. 背景去 Google Sheets 攞最新 Data
         const res = await fetch(`${SCRIPT_URL}?sheet=Itinerary`);
-        const newData = await res.json();
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        localStorage.setItem('france_itin_cache', JSON.stringify(data));
+        renderItinHTML(data);
+    } catch (e) {
+        console.error("Itinerary Fetch Error:", e);
+        // 如果連 Cache 都冇先顯示 Error
+        if (!cached) listEl.innerHTML = `<p style="text-align:center;color:red;">Sync Error: ${e.message}</p>`;
+    }
+}
+
+// 【核心修復 2】Expenses 讀取
+async function fetchExpenses() {
+    // 先攞手機 Cache 墊底，確保唔會「乜都無」
+    let localData = localStorage.getItem('france_expenses');
+    if (localData) {
+        expenses = JSON.parse(localData);
+        renderExpenses();
+    }
+
+    try {
+        const res = await fetch(`${SCRIPT_URL}?sheet=Expenses`);
+        const data = await res.json();
         
-        // 3. 比較新舊數據，如果有變動先至 Save 同重新 Render
-        if (JSON.stringify(newData) !== cachedData) {
-            localStorage.setItem('france_itinerary_cache', JSON.stringify(newData));
-            renderItineraryHTML(newData);
-            console.log("Itinerary updated from server.");
+        if (Array.isArray(data) && data.length > 0) {
+            // 重新對應 Sheet 欄位 (請確保你 Sheet header 叫 Date, Category, Currency, Amount, PaidBy, SharedWith)
+            expenses = data.map((row, index) => ({
+                id: Date.now() + index,
+                date: row.Date || "", 
+                item: row.Category || "",
+                currency: row.Currency || "HKD",
+                amount: parseFloat(row.Amount || 0),
+                paid: row.PaidBy || "",
+                shared: (row.SharedWith || "").toString().split(',').map(s => s.trim())
+            }));
+            localStorage.setItem('france_expenses', JSON.stringify(expenses));
+            renderExpenses();
         }
     } catch (e) {
-        if (!cachedData) {
-            listEl.innerHTML = `<p style='text-align:center; color:red; padding:20px;'>Error: ${e.message}</p>`;
-        }
+        console.error("Expenses Fetch Error:", e);
     }
 }
 
