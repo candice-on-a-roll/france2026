@@ -89,7 +89,7 @@ select.input-field {
 <div id="expenses-page" style="display:none;"><div id="expenses-content"></div></div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby197Wu8ZbvibClK36DiXXIpYvf2fxSCQcF2szHffwMY4Ov-AjgX9BGK42z-qk7WDJ9lA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyeInjTDiriNKGC41fNBcrQGwVgjQ70XWjw4tR8DuvPJ48eTLKoM_HXc109nEMSrqRYDA/exec";
 const peopleColors = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
 let expenses = [];
 let paid = "", shared = [];
@@ -105,30 +105,41 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 function fmtD(raw) {
     if (!raw) return "TBD";
     if (typeof raw === 'number' && raw < 1000) return "TBD";
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return "TBD";
+    const str = String(raw);
+    // Apps Script returns "yyyy-MM-ddTHH:mm:ss" (no Z) — already Paris local time, split directly
+    const datePart = str.includes('T') ? str.split('T')[0] : str.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+        const [, m, d] = datePart.split('-').map(Number);
+        if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return MONTHS[m - 1] + ' ' + d;
+    }
+    // Fallback for raw UTC ISO strings (ends with Z)
+    const dt = new Date(str);
+    if (isNaN(dt.getTime())) return "TBD";
     const parts = new Intl.DateTimeFormat('en-US', {
         timeZone: PARIS_TZ, year: 'numeric', month: 'numeric', day: 'numeric'
-    }).formatToParts(d);
+    }).formatToParts(dt);
     const month = parseInt(parts.find(p => p.type === 'month').value) - 1;
     const day   = parseInt(parts.find(p => p.type === 'day').value);
     if (month < 0 || month > 11 || day < 1 || day > 31) return "TBD";
-    return MONTHS[month] + " " + day;
+    return MONTHS[month] + ' ' + day;
 }
 
 function fmtT(raw) {
     if (!raw) return '--:--';
-    // Decimal fraction 0..1 — direct calculation, no timezone needed
+    // Decimal fraction 0..1 — direct calculation
     if (typeof raw === 'number' && raw > 0 && raw < 1) {
         const totalMin = Math.round(raw * 24 * 60);
         return String(Math.floor(totalMin / 60)).padStart(2,'0') + ':' + String(totalMin % 60).padStart(2,'0');
     }
-    let iso = String(raw);
-    // Google Sheets stores time-only values with a "1899-12-30" base date.
-    // Passing that century to Intl.DateTimeFormat makes it use the *historical*
-    // Paris Mean Time offset (UTC+0:09:21) instead of modern CET/CEST — giving
-    // completely wrong hours. Swap in a modern date that sits inside CEST (UTC+2)
-    // so the correct offset is applied.
+    const str = String(raw);
+    // Apps Script returns "yyyy-MM-ddTHH:mm:ss" (no Z) — already Paris local time, split directly
+    if (str.includes('T') && !str.endsWith('Z') && !str.includes('+')) {
+        return str.split('T')[1].substring(0, 5);
+    }
+    // Plain "HH:MM" string
+    if (/^\d{1,2}:\d{2}/.test(str)) return str.substring(0, 5);
+    // Fallback for raw UTC ISO strings — swap 1899 base date to get modern CET/CEST offset
+    let iso = str;
     if (iso.startsWith('1899-12-30T')) iso = iso.replace('1899-12-30', '2026-06-01');
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '--:--';
@@ -153,8 +164,8 @@ function getField(row, ...keys) {
 
 // ── Data fetching ──────────────────────────────────────────────────────────
 async function fetchData(sheet) {
-    const cacheKey = `cache_v3_${sheet}`;
-    const timeKey  = `time_v3_${sheet}`;
+    const cacheKey = `cache_v4_${sheet}`;
+    const timeKey  = `time_v4_${sheet}`;
     const lastTime = localStorage.getItem(timeKey) || "0";
     try {
         const res    = await fetch(`${SCRIPT_URL}?sheet=${sheet}&lastUpdate=${lastTime}`);
