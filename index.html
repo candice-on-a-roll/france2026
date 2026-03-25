@@ -76,7 +76,10 @@ select.input-field {
 </head>
 <body>
 
-<div class="header"><div class="title">France 2026</div></div>
+<div class="header">
+    <div class="title">France 2026</div>
+    <div id="refresh-btn" onclick="hardRefresh()" style="margin-top:10px; font-size:11px; color:rgba(255,255,255,0.45); cursor:pointer; letter-spacing:0.5px;">↺ refresh data</div>
+</div>
 <div class="tabs">
     <div id="tab-itinerary" class="tab active" onclick="showTab('itinerary')">Itinerary</div>
     <div id="tab-expenses" class="tab" onclick="showTab('expenses')">Expenses</div>
@@ -366,6 +369,11 @@ async function saveData() {
         })
     });
     showTab('expenses');
+}
+
+function hardRefresh() {
+    localStorage.clear();
+    location.reload();
 }
 
 window.onload = () => showTab('itinerary');
