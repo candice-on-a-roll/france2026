@@ -106,13 +106,14 @@ function fmtD(raw) {
     if (!raw) return "TBD";
     if (typeof raw === 'number' && raw < 1000) return "TBD";
     const str = String(raw);
-    // Apps Script returns "yyyy-MM-ddTHH:mm:ss" (no Z) — already Paris local time, split directly
-    const datePart = str.includes('T') ? str.split('T')[0] : str.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    // No-Z format from Apps Script (Utilities.formatDate) — already Paris local time, split directly
+    if (str.includes('T') && !str.endsWith('Z') && !str.includes('+')) {
+        const datePart = str.split('T')[0];
         const [, m, d] = datePart.split('-').map(Number);
         if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return MONTHS[m - 1] + ' ' + d;
     }
-    // Fallback for raw UTC ISO strings (ends with Z)
+    // Z-suffix UTC string — must use Intl with Paris timezone (never split on T,
+    // midnight Paris = 22:00 UTC previous day so the date part alone is wrong)
     const dt = new Date(str);
     if (isNaN(dt.getTime())) return "TBD";
     const parts = new Intl.DateTimeFormat('en-US', {
@@ -164,8 +165,8 @@ function getField(row, ...keys) {
 
 // ── Data fetching ──────────────────────────────────────────────────────────
 async function fetchData(sheet) {
-    const cacheKey = `cache_v4_${sheet}`;
-    const timeKey  = `time_v4_${sheet}`;
+    const cacheKey = `cache_v5_${sheet}`;
+    const timeKey  = `time_v5_${sheet}`;
     const lastTime = localStorage.getItem(timeKey) || "0";
     try {
         const res    = await fetch(`${SCRIPT_URL}?sheet=${sheet}&lastUpdate=${lastTime}`);
