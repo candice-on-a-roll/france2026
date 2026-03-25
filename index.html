@@ -10,65 +10,29 @@
 body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: antialiased; }
 .header { padding: 30px 20px; background: var(--navy); color: white; text-align: center; border-radius: 0 0 25px 25px; }
 .title { font-family: 'Playfair Display', serif; font-size: 26px; letter-spacing: 1px; }
-
 .tabs { display: flex; margin: -20px 25px 15px; background: white; padding: 5px; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); position: relative; z-index: 10; }
 .tab { flex: 1; text-align: center; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; color: var(--light-gray); cursor: pointer; }
 .tab.active { background: var(--navy); color: white; }
-
 .date-header { background: white; padding: 15px 20px; margin: 10px 15px; border-radius: 12px; font-weight: 700; color: var(--navy); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; text-align: left; }
 .date-header::after { content: '▼'; font-size: 10px; color: #ccc; }
 .date-content { display: none; }
 .date-content.open { display: block; }
-
 .card { background: white; border-radius: 15px; padding: 18px; margin: 10px 15px; border: 1px solid #eee; text-align: left; }
-
 .form-group { margin-bottom: 15px; text-align: left; }
-.form-group label,
-.field-label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    font-family: 'Inter', sans-serif;
-    color: var(--light-gray);
-    margin-bottom: 8px;
-}
-.input-field {
-    width: 100%;
-    height: 50px;
-    padding: 10px 15px;
-    background: #fff;
-    border: 1.5px solid #eee;
-    border-radius: 12px;
-    font-size: 15px;
-    font-family: 'Inter', sans-serif;
-    color: #333;
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
-    box-shadow: none;
-}
+.form-group label, .field-label { display: block; font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif; color: var(--light-gray); margin-bottom: 8px; }
+.input-field { width: 100%; height: 50px; padding: 10px 15px; background: #fff; border: 1.5px solid #eee; border-radius: 12px; font-size: 15px; font-family: 'Inter', sans-serif; color: #333; outline: none; -webkit-appearance: none; appearance: none; box-shadow: none; }
 .input-field:focus { border-color: #ccc; outline: none; box-shadow: none; }
-select.input-field {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 36px;
-    cursor: pointer;
-}
-
+select.input-field { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; cursor: pointer; }
 .people-row { display: flex; gap: 12px; overflow-x: auto; padding: 8px 0; -webkit-overflow-scrolling: touch; }
 .person { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 700; border: 2.5px solid transparent; flex-shrink: 0; cursor: pointer; }
 .person.selected { border-color: #3498db; transform: scale(1.1); box-shadow: 0 4px 10px rgba(52,152,219,0.3); }
-
 .btn-confirm { background: var(--navy); color: white; width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 17px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 10px; }
+.btn-delete { background: #c0392b; color: white; width: 100%; padding: 14px; border-radius: 15px; border: none; font-size: 15px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 8px; }
 .btn-cancel { background: none; color: var(--light-gray); width: 100%; padding: 10px; border: none; font-size: 14px; font-family: 'Inter', sans-serif; cursor: pointer; }
-
 .itin-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid #f8f8f8; }
 .itin-time { color: var(--wine); font-weight: 700; font-size: 13px; min-width: 50px; }
-
 .matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .matrix-table th, .matrix-table td { padding: 10px 4px; border: 1px solid #f0f0f0; text-align: center; }
-
 .form-row { display: flex; gap: 12px; margin-bottom: 15px; }
 .form-row > div { flex: 1; }
 .form-row > div.wide { flex: 2; }
@@ -91,51 +55,69 @@ const peopleColors = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d
 let expenses = [];
 let paid = "", shared = [];
 
-// ── Date/Time helpers ──────────────────────────────────────────────────────
-// Google Apps Script serialises Date values as UTC ISO strings.
-// All data was entered in Paris time, so we parse as UTC then display
-// using the Europe/Paris timezone — no manual offset arithmetic needed.
-
-const PARIS_TZ = 'Europe/Paris';
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
+// ── FIX 1: Date parsing ────────────────────────────────────────────────────
+// Google Sheets sends dates as ISO strings like "2026-04-01T00:00:00.000Z"
+// We extract the date part directly from the string to avoid timezone shifts.
 function fmtD(raw) {
     if (!raw) return "TBD";
     if (typeof raw === 'number' && raw < 1000) return "TBD";
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return "TBD";
-    const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone: PARIS_TZ, year: 'numeric', month: 'numeric', day: 'numeric'
-    }).formatToParts(d);
-    const month = parseInt(parts.find(p => p.type === 'month').value) - 1;
-    const day   = parseInt(parts.find(p => p.type === 'day').value);
+    
+    let year, month, day;
+    
+    if (typeof raw === 'string') {
+        // Extract date directly from ISO string — no timezone conversion
+        const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) {
+            year  = parseInt(m[1]);
+            month = parseInt(m[2]) - 1;
+            day   = parseInt(m[3]);
+        } else {
+            return "TBD";
+        }
+    } else {
+        // Numeric serial (rare) — fall back to Date object
+        const d = new Date(raw);
+        if (isNaN(d.getTime())) return "TBD";
+        year  = d.getUTCFullYear();
+        month = d.getUTCMonth();
+        day   = d.getUTCDate();
+    }
+    
     if (month < 0 || month > 11 || day < 1 || day > 31) return "TBD";
     return MONTHS[month] + " " + day;
 }
 
+// ── FIX 2: Time parsing ────────────────────────────────────────────────────
+// Google Sheets sends DateTime as "2026-04-01T13:30:00.000Z" (UTC).
+// The time part IS the local time value — just extract HH:MM directly.
 function fmtT(raw) {
     if (!raw) return '--:--';
-    // Pure decimal fraction (Google Sheets time-only value — already unitless, no tz shift)
+    
+    // Pure decimal fraction (time-only cell, e.g. 0.5625 = 13:30)
     if (typeof raw === 'number' && raw > 0 && raw < 1) {
         const totalMin = Math.round(raw * 24 * 60);
         return String(Math.floor(totalMin / 60)).padStart(2,'0') + ':' + String(totalMin % 60).padStart(2,'0');
     }
-    // Already a plain "HH:MM" string
-    if (typeof raw === 'string' && /^\d{1,2}:\d{2}/.test(raw)) return raw.substring(0, 5);
-    // ISO string — parse as UTC, display in Paris timezone
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return '--:--';
-    return new Intl.DateTimeFormat('en-GB', {
-        timeZone: PARIS_TZ, hour: '2-digit', minute: '2-digit', hour12: false
-    }).format(d);
+    
+    if (typeof raw === 'string') {
+        // Already "HH:MM" string
+        if (/^\d{1,2}:\d{2}/.test(raw)) return raw.substring(0, 5);
+        
+        // ISO string like "2026-04-01T13:30:00.000Z"
+        // The T part contains the entered time — extract directly, no tz shift
+        const m = raw.match(/T(\d{2}):(\d{2})/);
+        if (m) return m[1] + ':' + m[2];
+    }
+    
+    return '--:--';
 }
 
 function fmtN(num) {
     return parseFloat(num || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-// ── Field accessor — handles column-header name variations from the sheet ──
-// e.g. "PaidBy" vs "Paid By" vs "paid_by"
 function getField(row, ...keys) {
     for (const k of keys) {
         const v = row[k];
@@ -144,10 +126,9 @@ function getField(row, ...keys) {
     return '';
 }
 
-// ── Data fetching ──────────────────────────────────────────────────────────
 async function fetchData(sheet) {
-    const cacheKey = `cache_v2_${sheet}`;
-    const timeKey  = `time_v2_${sheet}`;
+    const cacheKey = `cache_v3_${sheet}`;
+    const timeKey  = `time_v3_${sheet}`;
     const lastTime = localStorage.getItem(timeKey) || "0";
     try {
         const res    = await fetch(`${SCRIPT_URL}?sheet=${sheet}&lastUpdate=${lastTime}`);
@@ -171,7 +152,6 @@ function showTab(t) {
 
 function toggleDate(id) { document.getElementById('cont-'+id).classList.toggle('open'); }
 
-// ── Itinerary ──────────────────────────────────────────────────────────────
 async function renderItin() {
     const data = await fetchData('Itinerary');
     const grouped = data.reduce((acc, obj) => {
@@ -201,17 +181,15 @@ async function renderItin() {
     document.getElementById("itinerary-list").innerHTML = html || "<div class='card'>No data found</div>";
 }
 
-// ── Expenses ───────────────────────────────────────────────────────────────
 async function renderExpView() {
     const data = await fetchData('Expenses');
     expenses = data.map((row, i) => {
-        const fullItem = getField(row, 'Category', 'Item');
-        // PaidBy — try every likely header variant
+        const fullItem  = getField(row, 'Category', 'Item');
         const paidRaw   = getField(row, 'PaidBy', 'Paid By', 'paid_by', 'Paid by', 'paidby', 'PAIDBY');
-        // SharedWith — try every likely header variant
         const sharedRaw = getField(row, 'SharedWith', 'Shared With', 'shared_with', 'SharedBy', 'Shared By', 'shared_by', 'sharedwith', 'SHAREDWITH');
         return {
             id: i,
+            rowIndex: row._rowIndex || (i + 2),  // GAS should send 1-based sheet row
             date:   fmtD(row.Date),
             cat:    fullItem.split(':')[0].trim(),
             desc:   fullItem.includes(':') ? fullItem.split(':')[1].trim() : fullItem,
@@ -282,6 +260,17 @@ function openAdd(id = null) {
     paid   = e ? e.paid   : "";
     shared = e ? [...e.shared] : [];
 
+    // Format date for the date input
+    let dateVal = new Date().toISOString().split('T')[0];
+    if (e && e.date !== "TBD") {
+        const parts = e.date.split(' ');
+        if (parts.length === 2) {
+            const mo = String(MONTHS.indexOf(parts[0]) + 1).padStart(2,'0');
+            const dy = parts[1].padStart(2,'0');
+            dateVal = `2026-${mo}-${dy}`;
+        }
+    }
+
     document.getElementById("expenses-content").innerHTML = `
     <div class="card">
         <h2 style="font-family:'Playfair Display'; margin:0 0 25px 0;">${e ? 'Amend' : 'New'} Expense</h2>
@@ -289,7 +278,7 @@ function openAdd(id = null) {
         <div class="form-row">
             <div>
                 <div class="field-label">Date</div>
-                <input id="f-date" type="date" class="input-field" value="${new Date().toISOString().split('T')[0]}">
+                <input id="f-date" type="date" class="input-field" value="${dateVal}">
             </div>
             <div>
                 <div class="field-label">Category</div>
@@ -328,7 +317,8 @@ function openAdd(id = null) {
             <div class="people-row">${Object.keys(peopleColors).map(p=>`<div id="s-${p}" class="person ${shared.includes(p)?'selected':''}" style="background:${peopleColors[p]}" onclick="tglS('${p}')">${p}</div>`).join("")}</div>
         </div>
 
-        <button class="btn-confirm" onclick="saveData()">Confirm</button>
+        <button class="btn-confirm" onclick="saveData(${e ? e.rowIndex : 'null'})">Confirm</button>
+        ${e ? `<button class="btn-delete" onclick="deleteData(${e.rowIndex})">🗑 Delete Expense</button>` : ''}
         <button class="btn-cancel" onclick="renderExpView()">Cancel</button>
     </div>`;
 }
@@ -343,13 +333,15 @@ function tglS(p) {
     document.getElementById('s-'+p).classList.toggle('selected');
 }
 
-async function saveData() {
+async function saveData(rowIndex = null) {
     const amt = document.getElementById('f-amt').value;
     if (!amt || !paid || !shared.length) return alert("Please fill in all details!");
     fetch(SCRIPT_URL, {
         method: "POST", mode: "no-cors",
         body: JSON.stringify({
-            sheet: "Expenses", action: "add",
+            sheet: "Expenses",
+            action: rowIndex ? "update" : "add",
+            rowIndex: rowIndex,
             rowData: [
                 document.getElementById('f-date').value,
                 document.getElementById('f-cat').value + ": " + document.getElementById('f-item').value,
@@ -361,6 +353,25 @@ async function saveData() {
             ]
         })
     });
+    // Clear cache so next load fetches fresh data
+    localStorage.removeItem('cache_v3_Expenses');
+    localStorage.removeItem('time_v3_Expenses');
+    showTab('expenses');
+}
+
+// ── FIX 3: Delete expense ──────────────────────────────────────────────────
+async function deleteData(rowIndex) {
+    if (!confirm("Delete this expense?")) return;
+    fetch(SCRIPT_URL, {
+        method: "POST", mode: "no-cors",
+        body: JSON.stringify({
+            sheet: "Expenses",
+            action: "delete",
+            rowIndex: rowIndex
+        })
+    });
+    localStorage.removeItem('cache_v3_Expenses');
+    localStorage.removeItem('time_v3_Expenses');
     showTab('expenses');
 }
 
