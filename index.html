@@ -11,31 +11,31 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color
 .title { font-family: 'Playfair Display', serif; font-size: 26px; letter-spacing: 1px; }
 
 .tabs { display: flex; margin: -20px 25px 15px; background: white; padding: 5px; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); position: relative; z-index: 10; }
-.tab { flex: 1; text-align: center; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; color: #999; }
+.tab { flex: 1; text-align: center; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; color: #999; font-family: 'Inter', sans-serif; }
 .tab.active { background: var(--navy); color: white; }
 
 .card { background: white; border-radius: 18px; padding: 18px; margin: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid #eee; }
 
-/* Form 排版修復 */
-.form-group { margin-bottom: 20px; }
-.form-group label { display: block; font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; margin-bottom: 8px; }
-.input-field { width: 100%; box-sizing: border-box; height: 50px; padding: 12px 15px; background: #f0f2f5; border: 2px solid transparent; border-radius: 12px; font-size: 16px; font-family: inherit; outline: none; }
+/* Form 排版修復 & 字體統一 */
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; margin-bottom: 5px; font-family: 'Inter', sans-serif; }
+.input-field { width: 100%; box-sizing: border-box; height: 45px; padding: 10px 15px; background: #f0f2f5; border: 2px solid transparent; border-radius: 10px; font-size: 15px; font-family: 'Inter', sans-serif; outline: none; appearance: none; -webkit-appearance: none; }
 .input-field:focus { border-color: #ddd; background: #fff; }
 
-.people-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
-.person { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: 700; border: 3px solid transparent; transition: 0.2s; }
-.person.selected { border-color: #3498db; transform: scale(1.1); box-shadow: 0 4px 12px rgba(52,152,219,0.4); }
+/* Icon 打橫排 */
+.people-row { display: flex; flex-direction: row; gap: 8px; padding: 5px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.person { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 700; border: 3px solid transparent; flex-shrink: 0; transition: 0.2s; cursor: pointer; font-family: 'Inter', sans-serif; }
+.person.selected { border-color: #3498db; transform: scale(1.1); box-shadow: 0 3px 8px rgba(52,152,219,0.4); }
 
 .matrix-container { overflow-x: auto; margin-top: 10px; }
-.matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; }
-.matrix-table th, .matrix-table td { padding: 10px 5px; border: 1px solid #f0f0f0; }
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; font-family: 'Inter', sans-serif; }
+.matrix-table th, .matrix-table td { padding: 8px 4px; border: 1px solid #f0f0f0; }
 
-.btn-save { background: var(--navy); color: white; width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 16px; font-weight: 600; margin-top: 10px; cursor: pointer; }
-.btn-cancel { background: none; color: #999; width: 100%; padding: 15px; border: none; font-size: 14px; margin-top: 5px; cursor: pointer; }
+.btn-save { background: var(--navy); color: white; width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 16px; font-weight: 600; margin-top: 10px; cursor: pointer; font-family: 'Inter', sans-serif; }
+.btn-cancel { background: none; color: #999; width: 100%; padding: 10px; border: none; font-size: 13px; cursor: pointer; font-family: 'Inter', sans-serif; }
 
-/* Itinerary Style */
-.itin-item { display: flex; gap: 15px; padding: 15px 0; border-bottom: 1px solid #f0f0f0; }
-.itin-time { color: var(--wine); font-weight: 700; font-size: 14px; min-width: 50px; }
+.itin-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+.itin-time { color: var(--wine); font-weight: 700; font-size: 13px; min-width: 45px; font-family: 'Inter', sans-serif; }
 </style>
 </head>
 <body>
@@ -52,8 +52,26 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color
 <script>
 let SCRIPT_URL = "https://script.google.com/macros/s/AKfycby197Wu8ZbvibClK36DiXXIpYvf2fxSCQcF2szHffwMY4Ov-AjgX9BGK42z-qk7WDJ9lA/exec";
 let people = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
-let expenses = JSON.parse(localStorage.getItem('france_expenses') || "[]");
+let expenses = [];
 let paid = "", shared = [];
+
+// 強力日期格式化
+function fmtD(raw) {
+    if (!raw) return "";
+    let d = new Date(raw);
+    if (isNaN(d.getTime())) return raw; 
+    if (d.getFullYear() < 1910) d = new Date(); // 修正 Google Sheet 1899 錯誤
+    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+}
+
+function fmtT(raw) {
+    if (!raw) return "--:--";
+    let d = new Date(raw);
+    if (!isNaN(d.getTime()) && raw.toString().includes('T')) {
+        return d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    }
+    return raw.toString().substring(0,5);
+}
 
 function showTab(t) {
     document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
@@ -63,53 +81,33 @@ function showTab(t) {
     if(t==='itinerary') refreshItin(); else fetchExp();
 }
 
-// ---------------------------
-// ITINERARY (修復返晒嚟！)
-// ---------------------------
 async function refreshItin() {
     const listEl = document.getElementById("itinerary-list");
-    let cached = localStorage.getItem('france_itin_cache');
-    if(cached) renderItinHTML(JSON.parse(cached));
-    
     try {
         const res = await fetch(`${SCRIPT_URL}?sheet=Itinerary`);
         const data = await res.json();
-        if(!data.error) {
-            localStorage.setItem('france_itin_cache', JSON.stringify(data));
-            renderItinHTML(data);
-        }
-    } catch(e) { console.log("Fetch failed", e); }
+        if(!data.error) { renderItinHTML(data); }
+    } catch(e) { listEl.innerHTML = "<p style='text-align:center;padding:20px;'>Syncing...</p>"; }
 }
 
 function renderItinHTML(data) {
-    const listEl = document.getElementById("itinerary-list");
     const grouped = data.reduce((acc, obj) => {
-        let d = obj.Date;
+        let d = fmtD(obj.Date);
         if (!acc[d]) acc[d] = [];
         acc[d].push(obj);
         return acc;
     }, {});
-
     let html = "";
     for(let date in grouped) {
-        html += `<div class="card"><div style="font-weight:700; font-size:18px; color:var(--navy); margin-bottom:10px; border-bottom:2px solid var(--bg); padding-bottom:5px;">${date}</div>`;
+        html += `<div class="card"><div style="font-weight:700; font-size:16px; color:var(--navy); margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:5px;">${date}</div>`;
         grouped[date].forEach(item => {
-            html += `<div class="itin-item">
-                <div class="itin-time">${item.Time || '--:--'}</div>
-                <div>
-                    <div style="font-size:15px; font-weight:600;">${item.Activity}</div>
-                    <div style="font-size:12px; color:#999; margin-top:3px;">📍 ${item.Location || ''}</div>
-                </div>
-            </div>`;
+            html += `<div class="itin-item"><div class="itin-time">${fmtT(item.Time)}</div><div><div style="font-size:14px; font-weight:600;">${item.Activity}</div><div style="font-size:11px; color:#999;">📍 ${item.Location || ''}</div></div></div>`;
         });
         html += `</div>`;
     }
-    listEl.innerHTML = html || "<p style='text-align:center; padding:20px;'>No itinerary data.</p>";
+    document.getElementById("itinerary-list").innerHTML = html;
 }
 
-// ---------------------------
-// EXPENSES (Matrix 修復)
-// ---------------------------
 async function fetchExp() {
     try {
         const res = await fetch(`${SCRIPT_URL}?sheet=Expenses`);
@@ -123,8 +121,8 @@ async function fetchExp() {
                 let sRaw = getV(["SharedWith", "SharedBy", "Shared"]);
                 let sArr = Array.isArray(sRaw) ? sRaw : sRaw.toString().split(',').map(x=>x.trim().toUpperCase());
                 return {
-                    id: Date.now() + i, 
-                    date: getV(["Date"]), 
+                    id: i, 
+                    date: fmtD(getV(["Date"])), 
                     item: getV(["Category", "Item"]), 
                     amount: parseFloat(getV(["Amount"]) || 0), 
                     currency: getV(["Currency"]) || "HKD", 
@@ -132,32 +130,14 @@ async function fetchExp() {
                     shared: sArr.filter(x => people[x])
                 };
             }).filter(e => e.paid && e.amount > 0);
-            localStorage.setItem('france_expenses', JSON.stringify(expenses));
             renderExpenses();
         }
-    } catch(e) { console.log(e); }
+    } catch(e) {}
 }
 
 function renderExpenses() {
     const { net, matrix } = calcMatrix();
-    let html = `<div class="card">
-        <label>Balance (HKD)</label>
-        <div class="matrix-container">
-            <table class="matrix-table">
-                <tr><th></th>${Object.keys(people).map(p=>`<th><div class="person" style="background:${people[p]}; width:24px; height:24px; font-size:10px; margin:auto;">${p}</div></th>`).join("")}</tr>
-                ${Object.keys(people).map(p1 => `<tr>
-                    <td><div class="person" style="background:${people[p1]}; width:24px; height:24px; font-size:10px; margin:auto;">${p1}</div></td>
-                    ${Object.keys(people).map(p2 => {
-                        if(p1===p2) return `<td style="font-weight:700; color:${net[p1]>=0?'#27ae60':'#e74c3c'}">${net[p1].toFixed(0)}</td>`;
-                        let amt = matrix[p1][p2];
-                        return `<td style="color:#e74c3c">${amt > 0 ? '-' + amt.toFixed(0) : '-'}</td>`;
-                    }).join("")}
-                </tr>`).join("")}
-            </table>
-        </div>
-    </div>
-    <button class="btn-save" style="margin: 0 15px; width: calc(100% - 30px);" onclick="openAdd()">+ Add Expense</button>
-    ${renderHistory()}`;
+    let html = `<div class="card"><label>Settlement (HKD)</label><div class="matrix-container"><table class="matrix-table"><tr><th></th>${Object.keys(people).map(p=>`<th><div class="person" style="background:${people[p]}; width:22px; height:22px; font-size:9px; margin:auto;">${p}</div></th>`).join("")}</tr>${Object.keys(people).map(p1 => `<tr><td><div class="person" style="background:${people[p1]}; width:22px; height:22px; font-size:9px; margin:auto;">${p1}</div></td>${Object.keys(people).map(p2 => { if(p1===p2) return `<td style="font-weight:700; color:${net[p1]>=0?'#27ae60':'#e74c3c'}">${net[p1].toFixed(0)}</td>`; let amt = matrix[p1][p2]; return `<td style="color:#e74c3c">${amt > 0 ? '-' + amt.toFixed(0) : '-'}</td>`; }).join("")}</tr>`).join("")}</table></div></div><button class="btn-save" style="margin: 0 15px; width: calc(100% - 30px);" onclick="openAdd()">+ Add Expense</button>${renderHistory()}`;
     document.getElementById("expenses-content").innerHTML = html;
 }
 
@@ -172,7 +152,6 @@ function calcMatrix() {
             net[e.paid] += total;
         }
     });
-    // 抵銷邏輯
     let keys = Object.keys(people);
     for(let i=0; i<keys.length; i++){
         for(let j=i+1; j<keys.length; j++){
@@ -186,76 +165,40 @@ function calcMatrix() {
 
 function renderHistory() {
     return expenses.slice().reverse().map(e => `
-        <div class="card" style="display:flex; justify-content:space-between; align-items:center;" onclick="openAdd(${e.id})">
-            <div><div style="font-weight:600;">${e.item}</div><div style="font-size:11px; color:#999;">${e.paid} paid · ${e.date}</div></div>
-            <div style="font-weight:700;">${e.amount} ${e.currency}</div>
+        <div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:12px 15px;" onclick="openAdd(${e.id})">
+            <div><div style="font-weight:600; font-size:14px;">${e.item}</div><div style="font-size:11px; color:#999;">${e.paid} paid · ${e.date}</div></div>
+            <div style="font-weight:700; font-size:14px;">${e.amount} ${e.currency}</div>
         </div>
     `).join("");
 }
 
-// ---------------------------
-// FORM (UI 修復版)
-// ---------------------------
 function openAdd(id = null) {
-    let e = (id !== null) ? expenses.find(x => x.id === id) : null;
+    let e = (id !== null) ? expenses.find((x, idx) => idx === id) : null;
     paid = e ? e.paid : "";
     shared = e ? [...e.shared] : [];
-
-    let html = `<div class="card">
-        <h2 style="font-family:'Playfair Display'; margin:0 0 25px 0;">${e?'Edit':'New'} Expense</h2>
-        
-        <div class="form-group">
-            <label>Item / Category</label>
-            <input id="f-item" class="input-field" placeholder="e.g. Lunch" value="${e?e.item:''}">
+    document.getElementById("expenses-content").innerHTML = `
+    <div class="card">
+        <h2 style="font-family:'Playfair Display'; margin:0 0 15px 0; font-size:20px;">${e?'Edit':'New'} Expense</h2>
+        <div class="form-group"><label>Item</label><input id="f-item" class="input-field" value="${e?e.item:''}"></div>
+        <div style="display:flex; gap:12px; margin-bottom:15px;">
+            <div style="flex:1;"><label>Currency</label><select id="f-curr" class="input-field"><option ${e?.currency==='HKD'?'selected':''}>HKD</option><option ${e?.currency==='EUR'?'selected':''}>EUR</option></select></div>
+            <div style="flex:2;"><label>Amount</label><input id="f-amt" type="number" class="input-field" value="${e?e.amount:''}"></div>
         </div>
-
-        <div style="display:flex; gap:15px; margin-bottom:20px;">
-            <div style="flex:1;">
-                <label>Currency</label>
-                <select id="f-curr" class="input-field"><option ${e?.currency==='HKD'?'selected':''}>HKD</option><option ${e?.currency==='EUR'?'selected':''}>EUR</option></select>
-            </div>
-            <div style="flex:2;">
-                <label>Amount</label>
-                <input id="f-amt" type="number" class="input-field" placeholder="0.00" value="${e?e.amount:''}">
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Paid By</label>
-            <div class="people-grid">
-                ${Object.keys(people).map(p => `<div id="p-${p}" class="person ${paid===p?'selected':''}" style="background:${people[p]}" onclick="selP('${p}')">${p}</div>`).join("")}
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Shared With</label>
-            <div class="people-grid">
-                ${Object.keys(people).map(p => `<div id="s-${p}" class="person ${shared.includes(p)?'selected':''}" style="background:${people[p]}" onclick="tglS('${p}')">${p}</div>`).join("")}
-            </div>
-        </div>
-
-        <button class="btn-save" onclick="saveData()">Confirm & Save</button>
+        <div class="form-group"><label>Paid By</label><div class="people-row">${Object.keys(people).map(p=>`<div id="p-${p}" class="person ${paid===p?'selected':''}" style="background:${people[p]}" onclick="selP('${p}')">${p}</div>`).join("")}</div></div>
+        <div class="form-group"><label>Shared With</label><div class="people-row">${Object.keys(people).map(p=>`<div id="s-${p}" class="person ${shared.includes(p)?'selected':''}" style="background:${people[p]}" onclick="tglS('${p}')">${p}</div>`).join("")}</div></div>
+        <button class="btn-save" onclick="saveData()">Confirm</button>
         <button class="btn-cancel" onclick="showTab('expenses')">Cancel</button>
     </div>`;
-    document.getElementById("expenses-content").innerHTML = html;
 }
 
 function selP(p) { paid = p; document.querySelectorAll('[id^="p-"]').forEach(el=>el.classList.remove('selected')); document.getElementById('p-'+p).classList.add('selected'); }
-function tglS(p) { 
-    if(shared.includes(p)) shared = shared.filter(x=>x!==p); else shared.push(p); 
-    document.getElementById('s-'+p).classList.toggle('selected'); 
-}
+function tglS(p) { if(shared.includes(p)) shared=shared.filter(x=>x!==p); else shared.push(p); document.getElementById('s-'+p).classList.toggle('selected'); }
 
 async function saveData() {
     let amt = document.getElementById('f-amt').value;
-    let item = document.getElementById('f-item').value;
-    if(!amt || !paid || !shared.length) return alert("Please fill all info!");
-    
-    let n = { date: new Date().toLocaleDateString('en-GB'), item, amount: parseFloat(amt), currency: document.getElementById('f-curr').value, paid, shared: [...shared] };
-    expenses.push(n);
-    localStorage.setItem('france_expenses', JSON.stringify(expenses));
+    if(!amt || !paid || !shared.length) return alert("Fill all!");
     showTab('expenses');
-    fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ sheet: "Expenses", action: "add", rowData: [n.date, n.item, n.currency, n.amount, "", 8.4, n.paid, n.shared.join(", ")] })});
+    fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ sheet: "Expenses", action: "add", rowData: [new Date().toLocaleDateString('en-GB'), document.getElementById('f-item').value, document.getElementById('f-curr').value, parseFloat(amt), "", 8.4, paid, shared.join(", ")] })});
 }
 
 window.onload = () => showTab('itinerary');
