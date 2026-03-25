@@ -190,7 +190,6 @@ async function fetchExpenses() {
         const data = await res.json();
         
         if (Array.isArray(data) && data.length > 0) {
-            // 防彈讀取：不論你 Sheet 的欄位名稱有沒有空格，都讀得到！
             expenses = data.map((row, index) => {
                 const getVal = (keys) => {
                     for(let k of keys) { if(row[k] !== undefined) return row[k]; }
@@ -198,7 +197,16 @@ async function fetchExpenses() {
                 };
                 
                 let p = getVal(["Paid By", "PaidBy", "paid"]).toString().trim();
-                let s = getVal(["Shared With", "SharedWith", "shared"]).toString();
+                
+                // 【關鍵修正】：強制處理 Shared With 數據格式
+                let rawShared = getVal(["Shared With", "SharedWith", "shared"]);
+                let sArray = [];
+                if (Array.isArray(rawShared)) {
+                    sArray = rawShared.map(x => x.toString().trim());
+                } else {
+                    sArray = rawShared.toString().split(',').map(x => x.trim());
+                }
+                
                 let amt = parseFloat(getVal(["Amount", "amount"]) || 0);
                 
                 return {
@@ -209,10 +217,10 @@ async function fetchExpenses() {
                     amount: amt,
                     notes: getVal(["Notes", "notes"]),
                     paid: p,
-                    shared: s.split(',').map(x => x.trim()).filter(x => x), // 清除空白
-                    settled: (getVal(["Settled", "settled"]) === "Yes")
+                    shared: sArray.filter(x => x && x !== ""), // 過濾空值
+                    settled: (getVal(["Settled", "settled"]).toString().toLowerCase() === "yes")
                 };
-            }).filter(e => e.paid !== "" && e.amount > 0); // 只保留有效數據
+            }).filter(e => e.paid !== "" && e.amount > 0);
             
             localStorage.setItem('france_expenses', JSON.stringify(expenses));
             renderExpenses();
