@@ -178,7 +178,7 @@ function toggleDayDetail(index) {
 function renderExpenses() {
     const { netBalances, displayMatrix } = getAccurateMatrix();
     let html = `<div class="card">
-        <b style="font-size:12px; color:#aaa;">SETTLEMENT MATRIX (HKD)</b>
+        <b style="font-size:12px; color:#aaa;">Settlement Matrix (HKD)</b>
         <div style="overflow-x:auto; margin-top:10px;">
             <table class="matrix-table">
                 <thead><tr><th></th>${Object.keys(people).map(p=>`<th><span class="person" style="background:${people[p]}">${p}</span></th>`).join("")}</tr></thead>
