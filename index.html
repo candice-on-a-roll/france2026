@@ -64,6 +64,14 @@ select.input-field {
 .btn-confirm { background: var(--navy); color: white; width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 17px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 10px; }
 .btn-cancel { background: none; color: var(--light-gray); width: 100%; padding: 10px; border: none; font-size: 14px; font-family: 'Inter', sans-serif; cursor: pointer; }
 .btn-delete { background: #fff0f0; color: #e74c3c; border: 1.5px solid #fcc; width: 100%; padding: 18px; border-radius: 15px; font-size: 17px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 5px; }
+.settled-toggle { display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; padding:14px 0 4px; }
+.settled-toggle input { display:none; }
+.settled-slider { position:relative; width:44px; height:26px; background:#ddd; border-radius:13px; flex-shrink:0; transition:background .2s; }
+.settled-slider::after { content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; background:white; border-radius:50%; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.settled-toggle input:checked + .settled-slider { background:#27ae60; }
+.settled-toggle input:checked + .settled-slider::after { transform:translateX(18px); }
+.settled-label { font-size:13px; color:#666; line-height:1.3; }
+.badge-settled { font-size:10px; background:#e8f8ee; color:#27ae60; border:1px solid #b2dfcc; border-radius:6px; padding:1px 6px; margin-left:6px; font-weight:600; vertical-align:middle; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .itin-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid #f8f8f8; }
@@ -97,7 +105,7 @@ select.input-field {
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYKXXhptVWefMeOax19EL98UbIYDJYCq_y1rIvHoMY4clw7XCySNJ6lHUvTbbuelOoVw/exec";
 const peopleColors = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
 let expenses = [];
-let paid = "", shared = [];
+let paid = "", shared = [], editingId = null;
 
 // ── Date/Time helpers ──────────────────────────────────────────────────────
 // Google Apps Script serialises Date values as UTC ISO strings.
@@ -174,7 +182,7 @@ function getField(row, ...keys) {
 // Cache-first: serve from localStorage instantly. Only hit the network when
 // cache is empty (first load, or after the user taps "↺ refresh data").
 async function fetchData(sheet) {
-    const cacheKey = `cache_v9_${sheet}`;
+    const cacheKey = `cache_v10_${sheet}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) return JSON.parse(cached);
     try {
@@ -295,10 +303,11 @@ async function renderExpView(skipFetch = false) {
             date:   fmtD(row.Date),
             cat:    fullItem.split(':')[0].trim(),
             desc:   fullItem.includes(':') ? fullItem.split(':')[1].trim() : fullItem,
-            amount: parseFloat(row.Amount || 0),
+            amount:   parseFloat(row.Amount || 0),
             currency: row.Currency || "HKD",
-            paid:   paidRaw.toString().trim().toUpperCase(),
-            shared: sharedRaw.toString().split(',').map(x => x.trim().toUpperCase()).filter(x => peopleColors[x])
+            paid:     paidRaw.toString().trim().toUpperCase(),
+            shared:   sharedRaw.toString().split(',').map(x => x.trim().toUpperCase()).filter(x => peopleColors[x]),
+            settled:  (getField(row, 'Settled', 'settled', 'SETTLED')||'').toString().trim().toUpperCase() === 'YES'
         };
         }).filter(e => e.amount > 0);
     }
@@ -334,7 +343,7 @@ async function renderExpView(skipFetch = false) {
                     <div class="card" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; gap:10px;" onclick="openAdd(${e.id})">
                         <div style="font-size:26px;line-height:1;flex-shrink:0;">${catIcon[e.cat] || '💳'}</div>
                         <div style="flex:1;min-width:0;">
-                            <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.cat}: ${e.desc}</div>
+                            <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.cat}: ${e.desc}${e.settled ? '<span class="badge-settled">✓ settled</span>' : ''}</div>
                             <div style="font-size:11px;color:#999;">${e.paid} paid</div>
                         </div>
                         <div style="font-weight:700;flex-shrink:0;">${fmtN(e.amount)} ${e.currency}</div>
@@ -352,7 +361,7 @@ function calcMatrix() {
         Object.keys(peopleColors).forEach(p2 => raw[p][p2] = 0);
     });
     expenses.forEach(e => {
-        if (!peopleColors[e.paid] || e.shared.length === 0) return;
+        if (e.settled || !peopleColors[e.paid] || e.shared.length === 0) return;
         const total = e.currency === "EUR" ? e.amount * 8.4 : e.amount;
         const share = total / e.shared.length;
         net[e.paid] += total;
@@ -366,6 +375,7 @@ function calcMatrix() {
 
 function openAdd(id = null) {
     const e = (id !== null) ? expenses.find(x => x.id === id) : null;
+    editingId = (e !== null) ? id : null;
     paid   = e ? e.paid   : "";
     shared = e ? [...e.shared] : [];
 
@@ -415,6 +425,14 @@ function openAdd(id = null) {
             <div class="people-row">${Object.keys(peopleColors).map(p=>`<div id="s-${p}" class="person ${shared.includes(p)?'selected':''}" style="background:${peopleColors[p]}" onclick="tglS('${p}')">${p}</div>`).join("")}</div>
         </div>
 
+        <div class="form-group">
+            <label class="settled-toggle">
+                <input type="checkbox" id="f-settled" ${e && e.settled ? 'checked' : ''}>
+                <span class="settled-slider"></span>
+                <span class="settled-label">Already Settled — exclude from balance</span>
+            </label>
+        </div>
+
         <button class="btn-confirm" onclick="saveData()">Confirm</button>
         <button class="btn-cancel" onclick="renderExpView()">Cancel</button>
         ${e ? `<button class="btn-delete" onclick="deleteExpense(${e.id})">🗑 Delete Expense</button>` : ''}
@@ -432,24 +450,54 @@ function tglS(p) {
 }
 
 async function saveData() {
-    const amt = document.getElementById('f-amt').value;
+    const amt      = document.getElementById('f-amt').value;
+    const settled  = document.getElementById('f-settled').checked;
     if (!amt || !paid || !shared.length) return alert("Please fill in all details!");
-    fetch(SCRIPT_URL, {
-        method: "POST", mode: "no-cors",
-        body: JSON.stringify({
-            sheet: "Expenses", action: "add",
-            rowData: [
-                document.getElementById('f-date').value,
-                document.getElementById('f-cat').value + ": " + document.getElementById('f-item').value,
-                document.getElementById('f-curr').value,
-                parseFloat(amt),
-                "", 8.4,
+
+    const rowData = [
+        document.getElementById('f-date').value,
+        document.getElementById('f-cat').value + ": " + document.getElementById('f-item').value,
+        document.getElementById('f-curr').value,
+        parseFloat(amt),
+        "", 8.4,
+        paid,
+        shared.join(", "),
+        settled ? 'YES' : ''
+    ];
+
+    if (editingId !== null) {
+        // Update existing row in the sheet
+        fetch(SCRIPT_URL, {
+            method: "POST", mode: "no-cors",
+            body: JSON.stringify({ sheet: "Expenses", action: "update", rowIndex: editingId + 2, rowData })
+        });
+        // Optimistically update the local expenses array
+        const idx = expenses.findIndex(x => x.id === editingId);
+        if (idx !== -1) {
+            const cat = rowData[1].split(':')[0].trim();
+            expenses[idx] = {
+                ...expenses[idx],
+                date:     rowData[0],
+                cat,
+                desc:     rowData[1].includes(':') ? rowData[1].split(':')[1].trim() : rowData[1],
+                currency: rowData[2],
+                amount:   rowData[3],
                 paid,
-                shared.join(", ")
-            ]
-        })
-    });
-    showTab('expenses');
+                shared:   [...shared],
+                settled
+            };
+        }
+        localStorage.removeItem('cache_v10_Expenses');
+        editingId = null;
+        renderExpView(true);
+    } else {
+        // Append new row
+        fetch(SCRIPT_URL, {
+            method: "POST", mode: "no-cors",
+            body: JSON.stringify({ sheet: "Expenses", action: "add", rowData })
+        });
+        showTab('expenses');
+    }
 }
 
 async function deleteExpense(id) {
@@ -460,7 +508,7 @@ async function deleteExpense(id) {
     });
     // Optimistically remove from memory and re-render without re-fetching
     expenses = expenses.filter(e => e.id !== id);
-    localStorage.removeItem('cache_v9_Expenses');
+    localStorage.removeItem('cache_v10_Expenses');
     renderExpView(true);
 }
 
