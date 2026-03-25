@@ -295,7 +295,7 @@ async function renderExpView(skipFetch = false) {
     </div>
     <button class="btn-confirm" style="width:calc(100% - 30px); margin:10px 15px;" onclick="openAdd()">+ Add Expense</button>`;
 
-    const catIcon = { Dining:'🍽️', Transport:'🚗', Hotel:'🏨', Activity:'🎡', Shopping:'🛍️', Others:'💳' };
+    const catIcon = { Dining:'🍽️', Transport:'🚗', Shopping:'🛍️', Activity:'🎡', Others:'💳' };
 
     let idx = 0;
     for (const date in grouped) {
@@ -351,7 +351,7 @@ function openAdd(id = null) {
             <div>
                 <div class="field-label">Category</div>
                 <select id="f-cat" class="input-field">
-                    ${['Dining','Transport','Hotel','Others'].map(c=>`<option ${e && e.cat===c?'selected':''}>${c}</option>`).join('')}
+                    ${[['Dining','🍽️'],['Transport','🚗'],['Shopping','🛍️'],['Activity','🎡'],['Others','💳']].map(([c,icon])=>`<option value="${c}" ${e && e.cat===c?'selected':''}>${icon} ${c}</option>`).join('')}
                 </select>
             </div>
         </div>
