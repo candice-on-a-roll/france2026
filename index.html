@@ -313,11 +313,18 @@ async function renderExpView(skipFetch = false) {
     }
 
     const { net, matrix } = calcMatrix();
-    const grouped = expenses.slice().reverse().reduce((acc, e) => {
+    // Sort expenses by the raw sheet date ascending, then group by formatted date
+    const sorted = expenses.slice().sort((a, b) => {
+        const da = new Date(a.date).getTime(), db = new Date(b.date).getTime();
+        return da - db;
+    });
+    const grouped = sorted.reduce((acc, e) => {
         if (!acc[e.date]) acc[e.date] = [];
         acc[e.date].push(e);
         return acc;
     }, {});
+    // Sort the date keys chronologically (formatted strings aren't reliably ordered)
+    const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
 
     let html = `<div class="card">
         <div class="field-label" style="margin-bottom:12px;">Balance (HKD)</div>
@@ -334,10 +341,10 @@ async function renderExpView(skipFetch = false) {
     </div>
     <button class="btn-confirm" style="width:calc(100% - 30px); margin:10px 15px;" onclick="openAdd()">+ Add Expense</button>`;
 
-    const catIcon = { Dining:'🍽️', Transport:'🚗', Shopping:'🛍️', Activity:'🎡', Others:'💳' };
+    const catIcon = { Dining:'🍽️', Transport:'🚗', Hotel:'🏨', Shopping:'🛍️', Activity:'🎡', Others:'💳' };
 
     let idx = 0;
-    for (const date in grouped) {
+    for (const date of sortedDates) {
         html += `<div class="date-header" onclick="toggleDate('ex${idx}')">${date}</div>
                  <div class="date-content" id="cont-ex${idx}">${grouped[date].map(e => `
                     <div class="card" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; gap:10px;" onclick="openAdd(${e.id})">
@@ -391,7 +398,7 @@ function openAdd(id = null) {
             <div>
                 <div class="field-label">Category</div>
                 <select id="f-cat" class="input-field">
-                    ${[['Dining','🍽️'],['Transport','🚗'],['Shopping','🛍️'],['Activity','🎡'],['Others','💳']].map(([c,icon])=>`<option value="${c}" ${e && e.cat===c?'selected':''}>${icon} ${c}</option>`).join('')}
+                    ${[['Dining','🍽️'],['Transport','🚗'],['Hotel','🏨'],['Shopping','🛍️'],['Activity','🎡'],['Others','💳']].map(([c,icon])=>`<option value="${c}" ${e && e.cat===c?'selected':''}>${icon} ${c}</option>`).join('')}
                 </select>
             </div>
         </div>
@@ -425,12 +432,12 @@ function openAdd(id = null) {
             <div class="people-row">${Object.keys(peopleColors).map(p=>`<div id="s-${p}" class="person ${shared.includes(p)?'selected':''}" style="background:${peopleColors[p]}" onclick="tglS('${p}')">${p}</div>`).join("")}</div>
         </div>
 
-        <div class="form-group">
-            <label class="settled-toggle">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0 4px;">
+            <label class="settled-toggle" style="padding:0;">
                 <input type="checkbox" id="f-settled" ${e && e.settled ? 'checked' : ''}>
                 <span class="settled-slider"></span>
-                <span class="settled-label">Already Settled — exclude from balance</span>
             </label>
+            <span class="settled-label">Already settled?</span>
         </div>
 
         <button class="btn-confirm" onclick="saveData()">Confirm</button>
@@ -477,7 +484,7 @@ async function saveData() {
             const cat = rowData[1].split(':')[0].trim();
             expenses[idx] = {
                 ...expenses[idx],
-                date:     rowData[0],
+                date:     fmtD(rowData[0]),
                 cat,
                 desc:     rowData[1].includes(':') ? rowData[1].split(':')[1].trim() : rowData[1],
                 currency: rowData[2],
