@@ -15,11 +15,13 @@ body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: an
 .tab { flex: 1; text-align: center; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; color: var(--light-gray); cursor: pointer; }
 .tab.active { background: var(--navy); color: white; }
 
-.date-header { background: white; padding: 14px 18px; margin: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; gap: 10px; }
+.date-header { background: white; padding: 14px 18px; margin: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; gap: 10px; transition: border-radius 0.2s; }
+.date-header.open { border-radius: 12px 12px 0 0; background: #f0f4ff; }
 .date-content { display: none; }
-.date-content.open { display: block; }
+.date-content.open { display: block; background: #f7f9ff; margin: 0 15px 10px; border-radius: 0 0 12px 12px; padding-bottom: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); }
 
 .card { background: white; border-radius: 15px; padding: 18px; margin: 10px 15px; border: 1px solid #eee; text-align: left; }
+.date-content.open .card { margin: 8px 10px; border-radius: 10px; }
 
 .form-group { margin-bottom: 15px; text-align: left; }
 .form-group label,
@@ -191,7 +193,13 @@ function showTab(t) {
     if (t === 'itinerary') renderItin(); else renderExpView();
 }
 
-function toggleDate(id) { document.getElementById('cont-'+id).classList.toggle('open'); }
+function toggleDate(id) {
+    document.getElementById('cont-'+id).classList.toggle('open');
+    // find the header immediately before this content and toggle its open style
+    const content = document.getElementById('cont-'+id);
+    const header = content.previousElementSibling;
+    if (header) header.classList.toggle('open');
+}
 
 // ── Itinerary ──────────────────────────────────────────────────────────────
 function makePeopleIcons(peopleStr, size = 22) {
@@ -201,7 +209,21 @@ function makePeopleIcons(peopleStr, size = 22) {
 
 async function renderItin() {
     const data = await fetchData('Itinerary');
-    const grouped = data.reduce((acc, obj) => {
+
+    // Sort rows by raw Date ascending, then by Time (hotel/night always last)
+    const timeSort = t => {
+        const s = (t||'').toString().trim().toLowerCase();
+        if (!s || s === 'night') return '99:99';          // hotel/night → end of day
+        const m = s.match(/(\d{1,2}):(\d{2})/);
+        return m ? m[1].padStart(2,'0') + ':' + m[2] : '99:98';
+    };
+    const sorted = [...data].sort((a, b) => {
+        const da = new Date(a.Date||0).getTime(), db = new Date(b.Date||0).getTime();
+        if (da !== db) return da - db;
+        return timeSort(a.Time) < timeSort(b.Time) ? -1 : timeSort(a.Time) > timeSort(b.Time) ? 1 : 0;
+    });
+
+    const grouped = sorted.reduce((acc, obj) => {
         const d = fmtD(obj.Date);
         if (d === "TBD") return acc;
         if (!acc[d]) acc[d] = [];
