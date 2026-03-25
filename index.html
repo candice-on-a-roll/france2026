@@ -89,7 +89,7 @@ select.input-field {
 <div id="expenses-page" style="display:none;"><div id="expenses-content"></div></div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz6RGexE-y09WaMWVB1KHK6va9RFes55qIB_gZchKiDG7s7peUoq2JGFB3yazKNMgpimw/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxuK-t8ImRa34yE6GLdDRD4Al3Gt-qILqopl1_C-W7D_KvwkyVBf8ed-fNcuh5hHNQTPw/exec";
 const peopleColors = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
 let expenses = [];
 let paid = "", shared = [];
@@ -165,8 +165,8 @@ function getField(row, ...keys) {
 
 // ── Data fetching ──────────────────────────────────────────────────────────
 async function fetchData(sheet) {
-    const cacheKey = `cache_v5_${sheet}`;
-    const timeKey  = `time_v5_${sheet}`;
+    const cacheKey = `cache_v6_${sheet}`;
+    const timeKey  = `time_v6_${sheet}`;
     const lastTime = localStorage.getItem(timeKey) || "0";
     try {
         const res    = await fetch(`${SCRIPT_URL}?sheet=${sheet}&lastUpdate=${lastTime}`);
