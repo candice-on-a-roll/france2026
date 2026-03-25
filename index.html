@@ -50,22 +50,53 @@ let expenses = JSON.parse(localStorage.getItem('france_expenses') || "[]");
 let paid = "", shared = [];
 
 // 【核心】切換 Tab
+// 修改 showTab，等切換到 Expenses 時都去攞資料
 function showTab(tabName) {
-    const itinPage = document.getElementById("itinerary-page");
-    const expPage = document.getElementById("expenses-page");
-    
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-
+    document.getElementById("tab-"+tabName).classList.add("active");
+    document.getElementById("itinerary-page").style.display = (tabName === 'itinerary' ? "block" : "none");
+    document.getElementById("expenses-page").style.display = (tabName === 'expenses' ? "block" : "none");
+    
     if (tabName === 'itinerary') {
-        itinPage.style.display = "block";
-        expPage.style.display = "none";
-        document.getElementById("tab-itinerary").classList.add("active");
-        refreshItinerary();
+        refreshItinerary(); 
     } else {
-        itinPage.style.display = "none";
-        expPage.style.display = "block";
-        document.getElementById("tab-expenses").classList.add("active");
-        renderExpenses();
+        fetchExpenses(); // 新增：切換到 Expenses Tab 時去 Sheets 攞數
+    }
+}
+
+// 新增：去 Google Sheets 攞返所有開支紀錄
+async function fetchExpenses() {
+    const contentEl = document.getElementById("expenses-content");
+    
+    // 1. 先顯示本地現有嘅數 (秒開)
+    renderExpenses(); 
+
+    try {
+        // 2. 去 Google Sheets 攞最新嘅 Expenses Sheet
+        const res = await fetch(`${SCRIPT_URL}?sheet=Expenses`);
+        const data = await res.json();
+        
+        if (data && data.length > 0) {
+            // 3. 將 Sheets 嘅格式轉返做你 App 用的格式
+            // 假設你 Sheet 格式係 [Date, Item, Currency, Amount, ..., PaidBy, SharedWith]
+            const formattedExpenses = data.map((row, index) => ({
+                id: index,
+                date: row.Date || row[0],
+                item: row.Category || row[1],
+                currency: row.Currency || row[2],
+                amount: parseFloat(row.Amount || row[3]),
+                paid: row.PaidBy || row[6],
+                shared: (row.SharedWith || row[7]).split(',').map(s => s.trim())
+            }));
+
+            // 4. 更新 LocalStorage 並重新渲染
+            expenses = formattedExpenses;
+            localStorage.setItem('france_expenses', JSON.stringify(expenses));
+            renderExpenses();
+            console.log("Expenses synced from Sheets.");
+        }
+    } catch (e) {
+        console.error("Sync expenses failed:", e);
     }
 }
 
