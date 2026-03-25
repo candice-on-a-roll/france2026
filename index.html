@@ -15,8 +15,7 @@ body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: an
 .tab { flex: 1; text-align: center; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; color: var(--light-gray); cursor: pointer; }
 .tab.active { background: var(--navy); color: white; }
 
-.date-header { background: white; padding: 15px 20px; margin: 10px 15px; border-radius: 12px; font-weight: 700; color: var(--navy); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; text-align: left; }
-.date-header::after { content: '▼'; font-size: 10px; color: #ccc; }
+.date-header { background: white; padding: 14px 18px; margin: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; gap: 10px; }
 .date-content { display: none; }
 .date-content.open { display: block; }
 
@@ -62,9 +61,12 @@ select.input-field {
 
 .btn-confirm { background: var(--navy); color: white; width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 17px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 10px; }
 .btn-cancel { background: none; color: var(--light-gray); width: 100%; padding: 10px; border: none; font-size: 14px; font-family: 'Inter', sans-serif; cursor: pointer; }
+.btn-delete { background: #fff0f0; color: #e74c3c; border: 1.5px solid #fcc; width: 100%; padding: 18px; border-radius: 15px; font-size: 17px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 5px; }
 
 .itin-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid #f8f8f8; }
-.itin-time { color: var(--wine); font-weight: 700; font-size: 13px; min-width: 50px; }
+.itin-item:last-child { border-bottom: none; }
+.itin-time { color: var(--wine); font-weight: 700; font-size: 13px; min-width: 46px; padding-top: 2px; }
+.map-btn { display: inline-flex; align-items: center; gap: 3px; background: #f0f4ff; color: #3498db; border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; text-decoration: none; cursor: pointer; white-space: nowrap; }
 
 .matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .matrix-table th, .matrix-table td { padding: 10px 4px; border: 1px solid #f0f0f0; text-align: center; }
@@ -166,20 +168,18 @@ function getField(row, ...keys) {
 }
 
 // ── Data fetching ──────────────────────────────────────────────────────────
+// Cache-first: serve from localStorage instantly. Only hit the network when
+// cache is empty (first load, or after the user taps "↺ refresh data").
 async function fetchData(sheet) {
     const cacheKey = `cache_v9_${sheet}`;
-    const timeKey  = `time_v9_${sheet}`;
-    const lastTime = localStorage.getItem(timeKey) || "0";
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
     try {
-        const res    = await fetch(`${SCRIPT_URL}?sheet=${sheet}&lastUpdate=${lastTime}&t=${Date.now()}`);
+        const res    = await fetch(`${SCRIPT_URL}?sheet=${sheet}&t=${Date.now()}`);
         const result = await res.json();
-        if (result.noUpdate) return JSON.parse(localStorage.getItem(cacheKey));
-        localStorage.setItem(cacheKey, JSON.stringify(result));
-        localStorage.setItem(timeKey, Date.now());
-        return result;
-    } catch(e) {
-        return JSON.parse(localStorage.getItem(cacheKey)) || [];
-    }
+        if (Array.isArray(result)) localStorage.setItem(cacheKey, JSON.stringify(result));
+        return Array.isArray(result) ? result : [];
+    } catch(e) { return []; }
 }
 
 function showTab(t) {
@@ -193,6 +193,11 @@ function showTab(t) {
 function toggleDate(id) { document.getElementById('cont-'+id).classList.toggle('open'); }
 
 // ── Itinerary ──────────────────────────────────────────────────────────────
+function makePeopleIcons(peopleStr, size = 22) {
+    return (peopleStr||'').split(',').map(p=>p.trim().toUpperCase()).filter(p=>peopleColors[p])
+        .map(p=>`<div class="person" style="background:${peopleColors[p]};width:${size}px;height:${size}px;font-size:${Math.round(size*0.42)}px;cursor:default;border:none;flex-shrink:0;">${p}</div>`).join('');
+}
+
 async function renderItin() {
     const data = await fetchData('Itinerary');
     const grouped = data.reduce((acc, obj) => {
@@ -205,26 +210,49 @@ async function renderItin() {
 
     let html = ""; let idx = 0;
     for (const date in grouped) {
-        html += `<div class="date-header" onclick="toggleDate('it${idx}')">${date}</div>
-                 <div class="date-content" id="cont-it${idx}">
-                    <div class="card">${grouped[date].map(item => `
-                        <div class="itin-item">
-                            <div class="itin-time">${fmtT(item.Time)}</div>
-                            <div style="flex:1;">
-                                <div style="font-size:15px; font-weight:600;">${item.Activity}</div>
-                                <div style="font-size:12px; color:#666; margin:4px 0;">📍 ${item.Location || ''}</div>
-                                <div class="people-row">${(item.People||'').split(',').map(p=>p.trim().toUpperCase()).filter(p=>peopleColors[p]).map(p=>`<div class="person" style="background:${peopleColors[p]}; width:22px; height:22px; font-size:9px; cursor:default;">${p}</div>`).join('')}</div>
-                            </div>
-                        </div>`).join('')}</div>
-                 </div>`;
+        const items = grouped[date];
+        // Aggregate unique locations and people across all events on this date
+        const locations = [...new Set(items.map(i => i.Location).filter(Boolean))].join(' · ');
+        const allPeople = [...new Set(items.flatMap(i =>
+            (i.People||'').split(',').map(p=>p.trim().toUpperCase()).filter(p=>peopleColors[p])
+        ))];
+        const headerPeople = allPeople.map(p=>`<div class="person" style="background:${peopleColors[p]};width:22px;height:22px;font-size:9px;cursor:default;border:none;flex-shrink:0;">${p}</div>`).join('');
+
+        html += `
+        <div class="date-header" onclick="toggleDate('it${idx}')">
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:16px;font-weight:700;color:var(--navy);">${date}</div>
+                ${locations ? `<div style="font-size:12px;color:var(--light-gray);margin-top:3px;">📍 ${locations}</div>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                <div style="display:flex;gap:3px;">${headerPeople}</div>
+                <span style="font-size:10px;color:#ccc;margin-left:2px;">▼</span>
+            </div>
+        </div>
+        <div class="date-content" id="cont-it${idx}">
+            <div class="card">${items.map(item => {
+                const mapLink = (item['Maps Link']||'').trim();
+                return `<div class="itin-item">
+                    <div class="itin-time">${fmtT(item.Time)}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${item.Activity}</div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;">${makePeopleIcons(item.People)}</div>
+                            ${mapLink ? `<a href="${mapLink}" target="_blank" class="map-btn">📍 Map</a>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('')}</div>
+        </div>`;
         idx++;
     }
     document.getElementById("itinerary-list").innerHTML = html || "<div class='card'>No data found</div>";
 }
 
 // ── Expenses ───────────────────────────────────────────────────────────────
-async function renderExpView() {
-    const data = await fetchData('Expenses');
+async function renderExpView(skipFetch = false) {
+    if (!skipFetch) {
+        const data = await fetchData('Expenses');
     expenses = data.map((row, i) => {
         const fullItem = getField(row, 'Category', 'Item');
         // PaidBy — try every likely header variant
@@ -241,7 +269,8 @@ async function renderExpView() {
             paid:   paidRaw.toString().trim().toUpperCase(),
             shared: sharedRaw.toString().split(',').map(x => x.trim().toUpperCase()).filter(x => peopleColors[x])
         };
-    }).filter(e => e.amount > 0);
+        }).filter(e => e.amount > 0);
+    }
 
     const { net, matrix } = calcMatrix();
     const grouped = expenses.slice().reverse().reduce((acc, e) => {
@@ -351,6 +380,7 @@ function openAdd(id = null) {
 
         <button class="btn-confirm" onclick="saveData()">Confirm</button>
         <button class="btn-cancel" onclick="renderExpView()">Cancel</button>
+        ${e ? `<button class="btn-delete" onclick="deleteExpense(${e.id})">🗑 Delete Expense</button>` : ''}
     </div>`;
 }
 
@@ -383,6 +413,18 @@ async function saveData() {
         })
     });
     showTab('expenses');
+}
+
+async function deleteExpense(id) {
+    if (!confirm('Delete this expense?')) return;
+    fetch(SCRIPT_URL, {
+        method: "POST", mode: "no-cors",
+        body: JSON.stringify({ action: 'delete', sheet: 'Expenses', rowIndex: id + 2 })
+    });
+    // Optimistically remove from memory and re-render without re-fetching
+    expenses = expenses.filter(e => e.id !== id);
+    localStorage.removeItem('cache_v9_Expenses');
+    renderExpView(true);
 }
 
 function hardRefresh() {
