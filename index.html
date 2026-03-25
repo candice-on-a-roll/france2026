@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-:root { --navy: #1a2a3a; --wine: #8e2121; --bg: #f8f9fa; --light-gray: #999; }
-* { box-sizing: border-box; font-family: 'Inter', sans-serif; }
-body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: antialiased; }
+:root { --navy: #1a2a3a; --wine: #8e2121; --bg: #f8f9fa; --light-gray: #999; --text: #333; }
+* { box-sizing: border-box; font-family: 'Inter', sans-serif; outline: none; }
+body { background: var(--bg); margin: 0; color: var(--text); -webkit-font-smoothing: antialiased; }
 .header { padding: 30px 20px; background: var(--navy); color: white; text-align: center; border-radius: 0 0 25px 25px; }
 .title { font-family: 'Playfair Display', serif; font-size: 26px; letter-spacing: 1px; }
 
@@ -15,30 +15,34 @@ body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: an
 .tab { flex: 1; text-align: center; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; color: var(--light-gray); cursor: pointer; }
 .tab.active { background: var(--navy); color: white; }
 
-.date-header { background: white; padding: 15px 20px; margin: 10px 15px; border-radius: 12px; font-weight: 700; color: var(--navy); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; text-align: left; }
+.date-header { background: white; padding: 15px 20px; margin: 10px 15px; border-radius: 12px; font-weight: 700; color: var(--navy); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; }
 .date-header::after { content: '▼'; font-size: 10px; color: #ccc; }
 .date-content { display: none; }
 .date-content.open { display: block; }
 
 .card { background: white; border-radius: 15px; padding: 18px; margin: 10px 15px; border: 1px solid #eee; text-align: left; }
 
-/* Form Style 修正 */
-.form-group { margin-bottom: 15px; text-align: left; }
-.form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--light-gray); margin-bottom: 8px; }
-.input-field { width: 100%; height: 50px; padding: 10px 15px; background: #fff; border: 1.5px solid #eee; border-radius: 12px; font-size: 15px; outline: none; -webkit-appearance: none; }
+/* Form 修正：統一字體顏色，取消核突藍色 */
+.form-group { margin-bottom: 18px; }
+.form-group label { display: block; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--light-gray); margin-bottom: 8px; }
+.input-field { 
+    width: 100%; height: 50px; padding: 10px 15px; background: #fff; 
+    border: 1.5px solid #eee; border-radius: 12px; font-size: 15px; color: var(--text);
+    -webkit-appearance: none; appearance: none;
+}
+.input-field:focus { border-color: var(--light-gray); } /* 變灰唔變藍 */
 
-.people-row { display: flex; gap: 12px; overflow-x: auto; padding: 8px 0; -webkit-overflow-scrolling: touch; }
-.person { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 700; border: 2.5px solid transparent; flex-shrink: 0; }
-.person.selected { border-color: #3498db; transform: scale(1.1); box-shadow: 0 4px 10px rgba(52,152,219,0.3); }
+.people-row { display: flex; gap: 10px; overflow-x: auto; padding: 8px 0; -webkit-overflow-scrolling: touch; }
+.person { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 700; border: 2.5px solid transparent; flex-shrink: 0; }
+.person.selected { border-color: #3498db; transform: scale(1.1); }
 
-.btn-confirm { background: var(--navy); color: white; width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 17px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+.btn-confirm { background: var(--navy); color: white; width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
 .btn-cancel { background: none; color: var(--light-gray); width: 100%; padding: 10px; border: none; font-size: 14px; cursor: pointer; }
 
 .itin-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid #f8f8f8; }
 .itin-time { color: var(--wine); font-weight: 700; font-size: 13px; min-width: 50px; }
-
-.matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.matrix-table th, .matrix-table td { padding: 10px 4px; border: 1px solid #f0f0f0; text-align: center; }
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; }
+.matrix-table th, .matrix-table td { padding: 10px 4px; border: 1px solid #f0f0f0; }
 </style>
 </head>
 <body>
@@ -58,24 +62,26 @@ let peopleColors = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63
 let expenses = [];
 let paid = "", shared = [];
 
-// 解決 April 1 變 March 31 嘅強制 UTC 格式化
-function fmtD(raw) {
-    if (!raw) return "TBD";
-    let d = new Date(raw);
-    // 過濾 1899-12-30
-    if (isNaN(d.getTime()) || d.getUTCFullYear() < 1970) {
-        if (typeof raw === 'string' && raw.includes('T')) return raw.split('T')[0];
-        return "TBD";
-    }
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    return months[d.getUTCMonth()] + " " + d.getUTCDate();
+// 解決日期偏差與時間亂碼問題
+function parseDateStr(str) {
+    if (!str) return null;
+    let s = str.toString().split('T')[0].replace(/-/g, '/');
+    let d = new Date(s);
+    return isNaN(d.getTime()) || d.getFullYear() < 1970 ? null : d;
 }
 
-function fmtN(num) { return parseFloat(num || 0).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0}); }
+function fmtD(raw) {
+    let d = parseDateStr(raw);
+    if (!d) return "TBD";
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return months[d.getMonth()] + " " + d.getDate();
+}
+
+function fmtN(num) { return parseFloat(num || 0).toLocaleString('en-US'); }
 
 async function fetchData(sheet) {
-    let cacheKey = `cache_v2_${sheet}`;
-    let timeKey = `time_v2_${sheet}`;
+    let cacheKey = `cache_v3_${sheet}`;
+    let timeKey = `time_v3_${sheet}`;
     let lastTime = localStorage.getItem(timeKey) || "0";
     try {
         const res = await fetch(`${SCRIPT_URL}?sheet=${sheet}&lastUpdate=${lastTime}`);
@@ -112,19 +118,23 @@ async function renderItin() {
     for(let date in grouped) {
         html += `<div class="date-header" onclick="toggleDate('it${idx}')">${date}</div>
                  <div class="date-content" id="cont-it${idx}">
-                    <div class="card">${grouped[date].map(item => `
+                    <div class="card">${grouped[date].map(item => {
+                        let timeStr = item.Time ? item.Time.toString() : "";
+                        let displayTime = timeStr.includes('T') ? timeStr.split('T')[1].substring(0,5) : (timeStr || '--:--');
+                        return `
                         <div class="itin-item">
-                            <div class="itin-time">${item.Time ? item.Time.split('T')[1]?.substring(0,5) || item.Time : '--:--'}</div>
+                            <div class="itin-time">${displayTime}</div>
                             <div style="flex:1;">
                                 <div style="font-size:15px; font-weight:600;">${item.Activity}</div>
                                 <div style="font-size:12px; color:#666; margin:4px 0;">📍 ${item.Location || ''}</div>
-                                <div class="people-row">${(item.People||'').split(',').map(p=>p.trim().toUpperCase()).filter(p=>peopleColors[p]).map(p=>`<div class="person" style="background:${peopleColors[p]}; width:22px; height:22px; font-size:9px;">${p}</div>`).join('')}</div>
+                                <div class="people-row">${(item.People||'').split(',').map(p=>p.trim().toUpperCase()).filter(p=>peopleColors[p]).map(p=>`<div class="person" style="background:${peopleColors[p]}; width:20px; height:20px; font-size:8px;">${p}</div>`).join('')}</div>
                             </div>
-                        </div>`).join('')}</div>
+                        </div>`;
+                    }).join('')}</div>
                  </div>`;
         idx++;
     }
-    document.getElementById("itinerary-list").innerHTML = html || "<div class='card'>No data found</div>";
+    document.getElementById("itinerary-list").innerHTML = html;
 }
 
 // EXPENSES
@@ -193,21 +203,15 @@ function openAdd(id = null) {
     <div class="card">
         <h2 style="font-family:'Playfair Display'; margin:0 0 25px 0;">${e?'Amend':'New'} Expense</h2>
         <div style="display:flex; gap:12px; margin-bottom:15px;">
-            <div style="flex:1.2;">
-                <label style="font-size:13px; font-weight:600; color:var(--light-gray); margin-bottom:8px; display:block;">Date</label>
-                <input id="f-date" type="date" class="input-field" value="${new Date().toISOString().split('T')[0]}">
-            </div>
-            <div style="flex:1;">
-                <label style="font-size:13px; font-weight:600; color:var(--light-gray); margin-bottom:8px; display:block;">Category</label>
-                <select id="f-cat" class="input-field">
-                    ${['Dining','Transport','Hotel','Others'].map(c=>`<option ${e && e.cat===c?'selected':''}>${c}</option>`).join('')}
-                </select>
-            </div>
+            <div style="flex:1.2;"><div class="form-group"><label>Date</label><input id="f-date" type="date" class="input-field" value="${new Date().toISOString().split('T')[0]}"></div></div>
+            <div style="flex:1;"><div class="form-group"><label>Category</label><select id="f-cat" class="input-field">
+                ${['Dining','Transport','Hotel','Others'].map(c=>`<option ${e && e.cat===c?'selected':''}>${c}</option>`).join('')}
+            </select></div></div>
         </div>
-        <div class="form-group"><label>Item Description</label><input id="f-item" class="input-field" placeholder="e.g. Lunch" value="${e?e.desc:''}"></div>
+        <div class="form-group"><label>Item Description</label><input id="f-item" class="input-field" value="${e?e.desc:''}"></div>
         <div style="display:flex; gap:12px; margin-bottom:15px;">
-            <div style="flex:1;"><label>Currency</label><select id="f-curr" class="input-field"><option ${e?.currency==='HKD'?'selected':''}>HKD</option><option ${e?.currency==='EUR'?'selected':''}>EUR</option></select></div>
-            <div style="flex:2;"><label>Amount</label><input id="f-amt" type="number" class="input-field" value="${e?e.amount:''}"></div>
+            <div style="flex:1;"><div class="form-group"><label>Currency</label><select id="f-curr" class="input-field"><option ${e?.currency==='HKD'?'selected':''}>HKD</option><option ${e?.currency==='EUR'?'selected':''}>EUR</option></select></div></div>
+            <div style="flex:2;"><div class="form-group"><label>Amount</label><input id="f-amt" type="number" class="input-field" value="${e?e.amount:''}"></div></div>
         </div>
         <div class="form-group"><label>Paid By</label><div class="people-row">${Object.keys(peopleColors).map(p=>`<div id="p-${p}" class="person ${paid===p?'selected':''}" style="background:${peopleColors[p]}" onclick="selP('${p}')">${p}</div>`).join("")}</div></div>
         <div class="form-group"><label>Shared With</label><div class="people-row">${Object.keys(peopleColors).map(p=>`<div id="s-${p}" class="person ${shared.includes(p)?'selected':''}" style="background:${peopleColors[p]}" onclick="tglS('${p}')">${p}</div>`).join("")}</div></div>
@@ -221,7 +225,7 @@ function tglS(p) { if(shared.includes(p)) shared=shared.filter(x=>x!==p); else s
 
 async function saveData() {
     let amt = document.getElementById('f-amt').value;
-    if(!amt || !paid || !shared.length) return alert("Please fill in all details!");
+    if(!amt || !paid || !shared.length) return alert("Fill all details!");
     fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ 
         sheet: "Expenses", action: "add", 
         rowData: [document.getElementById('f-date').value, document.getElementById('f-cat').value + ": " + document.getElementById('f-item').value, document.getElementById('f-curr').value, parseFloat(amt), "", 8.4, paid, shared.join(", ")] 
