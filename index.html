@@ -7,7 +7,7 @@
 <style>
 :root { --navy: #1a2a3a; --wine: #8e2121; --bg: #f8f9fa; --light-gray: #999; }
 * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
-body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: antialiased; }
+body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; }
 .header { padding: 30px 20px; background: var(--navy); color: white; text-align: center; border-radius: 0 0 25px 25px; }
 .title { font-family: 'Playfair Display', serif; font-size: 26px; letter-spacing: 1px; }
 
@@ -79,8 +79,8 @@ select.input-field {
 .itin-time { color: var(--wine); font-weight: 700; font-size: 13px; min-width: 46px; padding-top: 2px; }
 .map-btn { display: inline-flex; align-items: center; gap: 3px; background: #f0f4ff; color: #3498db; border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; text-decoration: none; cursor: pointer; white-space: nowrap; }
 
-.matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.matrix-table th, .matrix-table td { padding: 10px 4px; border: 1px solid #f0f0f0; text-align: center; }
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+.matrix-table th, .matrix-table td { padding: 7px 2px; border: 1px solid #f0f0f0; text-align: center; word-break: break-word; }
 
 .form-row { display: flex; gap: 12px; margin-bottom: 15px; }
 .form-row > div { flex: 1; }
@@ -270,9 +270,10 @@ async function renderItin() {
                 const mapLink  = (item['Maps Link']||'').trim();
                 const icon     = locIcon(item.Location);
                 const timeRaw  = (item.Time||'').toString().trim().toLowerCase();
-                const timeDisp = timeRaw === 'night' ? '🌙 night' : fmtT(item.Time);
+                const isHotel  = (item.Location||'').toLowerCase().includes('hotel');
+                const timeDisp = (timeRaw === 'night' || isHotel) ? '' : fmtT(item.Time);
                 return `<div class="itin-item">
-                    <div class="itin-time">${timeDisp}${icon ? `<div style="font-size:20px;margin-top:5px;line-height:1;">${icon}</div>` : ''}</div>
+                    <div class="itin-time" style="text-align:center;">${timeDisp}${icon ? `<div style="font-size:22px;margin-top:${timeDisp ? '5' : '0'}px;line-height:1;">${icon}</div>` : ''}</div>
                     <div style="flex:1;min-width:0;">
                         <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${item.Activity}</div>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -328,10 +329,10 @@ async function renderExpView(skipFetch = false) {
 
     let html = `<div class="card">
         <div class="field-label" style="margin-bottom:12px;">Balance (HKD)</div>
-        <div style="overflow-x:auto;"><table class="matrix-table">
-            <tr><th></th>${Object.keys(peopleColors).map(p=>`<th><div class="person" style="background:${peopleColors[p]}; width:24px; height:24px; margin:auto; cursor:default;">${p}</div></th>`).join("")}</tr>
+        <div><table class="matrix-table">
+            <tr><th></th>${Object.keys(peopleColors).map(p=>`<th><div class="person" style="background:${peopleColors[p]}; width:20px; height:20px; font-size:8px; margin:auto; cursor:default;">${p}</div></th>`).join("")}</tr>
             ${Object.keys(peopleColors).map(p1 => `<tr>
-                <td><div class="person" style="background:${peopleColors[p1]}; width:24px; height:24px; margin:auto; cursor:default;">${p1}</div></td>
+                <td><div class="person" style="background:${peopleColors[p1]}; width:20px; height:20px; font-size:8px; margin:auto; cursor:default;">${p1}</div></td>
                 ${Object.keys(peopleColors).map(p2 => p1===p2
                     ? `<td style="font-weight:700; color:${net[p1]>=0?'#27ae60':'#e74c3c'}">${fmtN(net[p1])}</td>`
                     : `<td style="color:#e74c3c">${matrix[p1][p2]>0?'-'+fmtN(matrix[p1][p2]):'-'}</td>`
