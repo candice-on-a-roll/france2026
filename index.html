@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root { --wine-red: #8e2121; --navy: #1a2a3a; --soft-gold: #c5a059; --bg: #f4f7f9; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: #2c3e50; }
+.header { padding: 25px 20px; background: var(--navy); color: white; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; text-align: center; }
+.title { font-family: 'Playfair Display', serif; font-size: 24px; letter-spacing: 2px; }
+.tabs { display: flex; margin: -15px 30px 10px; background: white; padding: 4px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+.tab { flex: 1; text-align: center; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 13px; color: #999; }
+.tab.active { background: var(--navy); color: white; }
+.person { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: white !important; font-size: 11px; font-weight: bold; flex-shrink: 0; margin: 0 4px; }
+.card { background: white; border-radius: 15px; padding: 15px; margin: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+.button-main { background: #2c3e50; color: white; padding: 12px 25px; border-radius: 25px; text-align: center; font-weight: 600; font-size: 14px; margin: 20px auto; cursor: pointer; border: none; display: block; width: 80%; }
+.input-small { box-sizing: border-box; height: 40px; padding: 8px 12px; font-size: 14px; border: 1px solid #ddd; border-radius: 8px; width: 100%; display: block; outline: none; }
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; }
+.matrix-table td, .matrix-table th { padding: 8px; border: 1px solid #eee; }
+.expense-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid #f8f8f8; cursor: pointer; }
+.selected { outline: 3px solid #3498db !important; transform: scale(1.1); }
+
+/* 大細階修正 */
+label, option, .history-date { text-transform: capitalize !important; }
+#currency, #currency option { text-transform: uppercase !important; }
+</style>
+</head>
+<body>
+
+<div class="header"><div class="title">France 2026</div></div>
+
+<div class="tabs">
+    <div id="tab-itinerary" class="tab active" onclick="showTab('itinerary')">Itinerary</div>
+    <div id="tab-expenses" class="tab" onclick="showTab('expenses')">Expenses</div>
+</div>
+
+<div id="itinerary-page">
+    <div id="itinerary-list"></div>
+</div>
+
+<div id="expenses-page" style="display:none;">
+    <div id="expenses-content"></div>
+</div>
+
+<script>
+let SCRIPT_URL = "https://script.google.com/macros/s/AKfycby197Wu8ZbvibClK36DiXXIpYvf2fxSCQcF2szHffwMY4Ov-AjgX9BGK42z-qk7WDJ9lA/exec";
+let people = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
+let expenses = JSON.parse(localStorage.getItem('france_expenses') || "[]");
+let paid = "", shared = [];
+
+// 【核心】切換 Tab
+function showTab(tabName) {
+    const itinPage = document.getElementById("itinerary-page");
+    const expPage = document.getElementById("expenses-page");
+    
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+
+    if (tabName === 'itinerary') {
+        itinPage.style.display = "block";
+        expPage.style.display = "none";
+        document.getElementById("tab-itinerary").classList.add("active");
+        refreshItinerary();
+    } else {
+        itinPage.style.display = "none";
+        expPage.style.display = "block";
+        document.getElementById("tab-expenses").classList.add("active");
+        renderExpenses();
+    }
+}
+
+// 【1】Itinerary 渲染
+// 【1】Itinerary 渲染 (加入 Cache 緩存邏輯)
+async function refreshItinerary() {
+    const listEl = document.getElementById("itinerary-list");
+    
+    // 1. 先拎手機入面嘅舊數據 (Cache)
+    let cachedData = localStorage.getItem('france_itinerary_cache');
+    if (cachedData) {
+        renderItineraryHTML(JSON.parse(cachedData)); // 如果有舊數據，即刻顯示 (秒開)
+    } else {
+        listEl.innerHTML = "<p style='text-align:center; padding:30px; color:#999; font-size:14px;'>Loading your journey... 🇫🇷</p>";
+    }
+    
+    try {
+        // 2. 背景去 Google Sheets 攞最新 Data
+        const res = await fetch(`${SCRIPT_URL}?sheet=Itinerary`);
+        const newData = await res.json();
+        
+        // 3. 比較新舊數據，如果有變動先至 Save 同重新 Render
+        if (JSON.stringify(newData) !== cachedData) {
+            localStorage.setItem('france_itinerary_cache', JSON.stringify(newData));
+            renderItineraryHTML(newData);
+            console.log("Itinerary updated from server.");
+        }
+    } catch (e) {
+        if (!cachedData) {
+            listEl.innerHTML = `<p style='text-align:center; color:red; padding:20px;'>Error: ${e.message}</p>`;
+        }
+    }
+}
+
+// 抽離出嚟做專門渲染 HTML 嘅 Function，方便 Cache 同 Live 通用
+function renderItineraryHTML(data) {
+    const listEl = document.getElementById("itinerary-list");
+    const grouped = data.reduce((acc, obj) => {
+        let d = new Date(obj.Date);
+        let dateStr = obj.Date;
+        if (!isNaN(d.getTime())) {
+            d.setUTCHours(d.getUTCHours() + 8); 
+            dateStr = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
+        }
+        if (!acc[dateStr]) {
+            acc[dateStr] = { locations: new Set(), allPeople: new Set(), items: [] };
+        }
+        let timeDisplay = obj.Time;
+        if (obj.Time && obj.Time.includes('T')) {
+            timeDisplay = new Date(obj.Time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        }
+        if (obj.Location) acc[dateStr].locations.add(obj.Location);
+        if (obj.People) obj.People.split(',').forEach(p => acc[dateStr].allPeople.add(p.trim()));
+        acc[dateStr].items.push({ ...obj, time: timeDisplay, peopleList: obj.People ? obj.People.split(',').map(p => p.trim()) : [] });
+        return acc;
+    }, {});
+
+    let html = "";
+    Object.keys(grouped).forEach((date, index) => {
+        const day = grouped[date];
+        const locationText = Array.from(day.locations).join(' & ');
+        const peopleIcons = Array.from(day.allPeople).map(p => 
+            `<span class="person" style="background:${people[p] || '#ccc'}; width:22px; height:22px; font-size:9px; margin:0 1px;">${p}</span>`
+        ).join('');
+
+        html += `
+        <div class="card" style="margin-bottom:12px; padding:0; border:1px solid #eee; overflow:hidden;">
+            <div onclick="toggleDayDetail(${index})" style="padding:15px; cursor:pointer; background:#fff; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex:1;">
+                    <div style="font-weight:700; font-size:16px; color:var(--navy);">${date}</div>
+                    <div style="font-size:12px; color:#999; margin-top:2px;">📍 ${locationText}</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="display:flex;">${peopleIcons}</div>
+                    <span id="arrow-${index}" style="font-size:12px; color:#ccc; transition:0.3s;">▼</span>
+                </div>
+            </div>
+            <div id="detail-${index}" style="display:none; padding:0 15px 15px; background:#fafafa; border-top:1px solid #f5f5f5;">
+                ${day.items.map((item, i) => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; ${i !== day.items.length-1 ? 'border-bottom:1px solid #eee' : ''}">
+                        <div style="display:flex; gap:12px; align-items:baseline;">
+                            <b style="color:var(--wine-red); font-size:13px; min-width:40px;">${item.time}</b>
+                            <span style="font-size:14px; color:#333;">${item.Activity}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="display:flex;">
+                                ${item.peopleList.map(p => `<span class="person" style="background:${people[p] || '#ccc'}; width:18px; height:18px; font-size:8px; margin:0 1px; opacity:0.8;">${p}</span>`).join('')}
+                            </div>
+                            ${item['Maps Link'] ? `<a href="${item['Maps Link']}" target="_blank" style="text-decoration:none; font-size:14px;">📍</a>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    });
+    listEl.innerHTML = html || "<p style='text-align:center; padding:20px;'>No data found.</p>";
+}
+
+// 摺疊控制函數
+function toggleDayDetail(index) {
+    const el = document.getElementById(`detail-${index}`);
+    const arrow = document.getElementById(`arrow-${index}`);
+    const isOpen = el.style.display === "block";
+    
+    el.style.display = isOpen ? "none" : "block";
+    arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
+}
+
+// 【2】Expenses 渲染
+function renderExpenses() {
+    const { netBalances, displayMatrix } = getAccurateMatrix();
+    let html = `<div class="card">
+        <b style="font-size:12px; color:#aaa;">SETTLEMENT MATRIX (HKD)</b>
+        <div style="overflow-x:auto; margin-top:10px;">
+            <table class="matrix-table">
+                <thead><tr><th></th>${Object.keys(people).map(p=>`<th><span class="person" style="background:${people[p]}">${p}</span></th>`).join("")}</tr></thead>
+                <tbody>
+                    ${Object.keys(people).map(pRow => `
+                        <tr>
+                            <td style="background:#f8f9fa;"><span class="person" style="background:${people[pRow]}">${pRow}</span></td>
+                            ${Object.keys(people).map(pCol => {
+                                if(pRow === pCol) {
+                                    let net = netBalances[pRow].toFixed(0);
+                                    return `<td style="background:#fdfaf0; color:${net>=0?'#27ae60':'#e74c3c'}"><b>${net>=0?'+':''}${net}</b></td>`;
+                                }
+                                let amt = displayMatrix[pRow][pCol];
+                                return `<td style="color:${amt>0?'#e74c3c':'#ccc'}">${amt>0?'-'+amt.toFixed(0):'-'}</td>`;
+                            }).join("")}
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <button class="button-main" onclick="openAdd()">+ Add New Expense</button>
+    ${renderHistoryList()}`;
+    document.getElementById("expenses-content").innerHTML = html;
+}
+
+function renderHistoryList() {
+    if (expenses.length === 0) return "";
+    let grouped = {};
+    [...expenses].reverse().forEach(e => {
+        let d = e.date;
+        if (!grouped[d]) grouped[d] = [];
+        grouped[d].push(e);
+    });
+    let html = "";
+    for (let date in grouped) {
+        html += `<div style="font-size:11px; margin:15px 20px 5px; font-weight:bold; color:#aaa;">${date}</div>`;
+        html += `<div class="card" style="padding:0;">`;
+        grouped[date].forEach(e => {
+            html += `<div class="expense-item" onclick="openAdd(${e.id})">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:20px;">${e.item.split(' ')[0]}</span>
+                    <div><div style="font-size:14px; font-weight:600;">${e.item}</div><div style="font-size:10px; color:#999;">Paid by ${e.paid}</div></div>
+                </div>
+                <div style="text-align:right;"><b>${e.amount} ${e.currency}</b></div>
+            </div>`;
+        });
+        html += `</div>`;
+    }
+    return html;
+}
+
+// 【3】計算矩陣
+function getAccurateMatrix() {
+    let net = {}, raw = {};
+    Object.keys(people).forEach(p => { net[p] = 0; raw[p] = {}; Object.keys(people).forEach(p2 => raw[p][p2] = 0); });
+    expenses.forEach(e => {
+        if (e.settled) return;
+        let total = e.currency === "EUR" ? e.amount * 8.4 : e.amount;
+        let share = total / e.shared.length;
+        e.shared.forEach(p => { net[p] -= share; if(p !== e.paid) raw[p][e.paid] += share; });
+        net[e.paid] += total;
+    });
+    let display = JSON.parse(JSON.stringify(raw));
+    let keys = Object.keys(people);
+    for(let i=0; i<keys.length; i++) {
+        for(let j=i+1; j<keys.length; j++) {
+            let p1 = keys[i], p2 = keys[j];
+            if(display[p1][p2] >= display[p2][p1]) { display[p1][p2] -= display[p2][p1]; display[p2][p1] = 0; }
+            else { display[p2][p1] -= display[p1][p2]; display[p1][p2] = 0; }
+        }
+    }
+    return { netBalances: net, displayMatrix: display };
+}
+
+// 【4】Add/Amend Form
+// 【1】修改 openAdd 增加 Notes 欄位
+function openAdd(editId = null) {
+    const isEdit = (editId !== null);
+    let exp = isEdit ? expenses.find(e => e.id == editId) : null;
+    paid = isEdit ? exp.paid : "";
+    shared = isEdit ? [...exp.shared] : [];
+    
+    // 處理日期顯示
+    const displayDate = isEdit ? exp.date.split('/').reverse().join('-') : new Date().toISOString().split('T')[0];
+
+    let html = `
+    <div class="card" style="max-width:600px; margin:20px auto; padding:25px;">
+        <h2 style="margin-top:0; font-family:'Playfair Display'; border-bottom:2px solid #eee; padding-bottom:10px;">
+            ${isEdit ? 'Amend Expense' : 'New Expense'}
+        </h2>
+        
+        <div style="display:flex; gap:15px; margin-bottom:15px;">
+            <div style="flex:1;"> <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Date</label>
+                <input id="exp-date" type="date" class="input-small" value="${displayDate}">
+            </div>
+            <div style="flex:1;"> <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Category</label>
+                <select id="item" class="input-small">
+                    <option value="🍽️ Dining" ${exp?.item.includes('Dining')?'selected':''}>🍽️ Dining</option>
+                    <option value="🚗 Transport" ${exp?.item.includes('Transport')?'selected':''}>🚗 Transport</option>
+                    <option value="🛍️ Shopping" ${exp?.item.includes('Shopping')?'selected':''}>🛍️ Shopping</option>
+                    <option value="🏨 Hotel" ${exp?.item.includes('Hotel')?'selected':''}>🏨 Hotel</option>
+                    <option value="❓ Others" ${exp?.item.includes('Others')?'selected':''}>❓ Others</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:15px; margin-bottom:15px;">
+            <div style="width:120px;">
+                <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Currency</label>
+                <select id="currency" class="input-small">
+                    <option value="HKD" ${exp?.currency==='HKD'?'selected':''}>HKD</option>
+                    <option value="EUR" ${exp?.currency==='EUR'?'selected':''}>EUR</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Amount</label>
+                <input id="amount" type="number" class="input-small" placeholder="0.00" value="${exp?exp.amount:''}">
+            </div>
+        </div>
+
+        <div style="margin-bottom:20px;">
+            <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Notes (optional)</label>
+            <input id="notes" type="text" class="input-small" placeholder="e.g. Lunch at Paris" value="${exp?.notes || ''}">
+        </div>
+
+        <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Paid by</label>
+        <div style="display:flex; gap:10px; margin-bottom:20px;">
+            ${Object.keys(people).map(p=>`<span class="person ${paid===p?'selected':''}" onclick="selectPaid('${p}')" id="paid-${p}" style="background:${people[p]}; width:35px; height:35px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.1);">${p}</span>`).join("")}
+        </div>
+
+        <label style="font-size:11px; font-weight:bold; color:#aaa; display:block; margin-bottom:5px;">Shared with</label>
+        <div style="display:flex; gap:10px; margin-bottom:25px;">
+            ${Object.keys(people).map(p=>`<span class="person ${shared.includes(p)?'selected':''}" onclick="toggleShare('${p}')" id="share-${p}" style="background:${people[p]}; width:35px; height:35px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.1);">${p}</span>`).join("")}
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f9f9f9; padding:12px; border-radius:10px; margin-bottom:25px; border:1px solid #eee;">
+            <span style="font-size:13px; color:#666;">Already settled?</span>
+            <input type="checkbox" id="settled" style="width:20px; height:20px;" ${exp?.settled?'checked':''}>
+        </div>
+
+        <div style="display:flex; gap:12px;">
+            <button onclick="showTab('expenses')" style="flex:1; padding:15px; border-radius:12px; border:none; background:#eee; font-weight:600; cursor:pointer;">Cancel</button>
+            <button onclick="saveExpense(${editId})" style="flex:2; padding:15px; border-radius:12px; border:none; background:#2c3e50; color:white; font-weight:600; cursor:pointer;">${isEdit ? 'Update' : 'Save'}</button>
+        </div>
+        
+        ${isEdit ? `<button onclick="deleteExpense(${editId})" style="width:100%; margin-top:15px; background:none; border:none; color:#e74c3c; font-size:13px; cursor:pointer; text-decoration:underline;">Delete entry</button>` : ''}
+    </div>`;
+    document.getElementById("expenses-content").innerHTML = html;
+}
+
+// 【2】修改 saveExpense 確保 Notes 會儲存並傳到 Sheets
+async function saveExpense(editId) {
+    const amt = document.getElementById("amount").value;
+    const notesVal = document.getElementById("notes").value;
+    if(!amt || !paid || shared.length===0) return alert("Please fill in Amount, Payer and Shared people.");
+    
+    if(editId) expenses = expenses.filter(e => e.id != editId);
+    
+    const newExp = {
+        id: editId || Date.now(),
+        date: document.getElementById("exp-date").value.split('-').reverse().join('/'),
+        item: document.getElementById("item").value,
+        amount: parseFloat(amt),
+        currency: document.getElementById("currency").value,
+        notes: notesVal, // 儲存 Notes
+        paid: paid,
+        shared: [...shared],
+        settled: document.getElementById("settled").checked
+    };
+    
+    expenses.push(newExp);
+    localStorage.setItem('france_expenses', JSON.stringify(expenses));
+    
+    // 傳送到 Google Sheets (rowData 順序要對應你張圖: Date, Category, Currency, Amount, Notes, Rate...)
+    fetch(SCRIPT_URL, { 
+        method: "POST", 
+        mode: "no-cors", 
+        body: JSON.stringify({ 
+            sheet: "Expenses", 
+            action: "add", 
+            rowData: [
+                newExp.date, 
+                newExp.item, 
+                newExp.currency, 
+                newExp.amount, 
+                newExp.notes, 
+                8.4, 
+                newExp.paid, 
+                newExp.shared.join(", "), 
+                newExp.settled ? "Yes" : "No"
+            ] 
+        })
+    });
+    
+    showTab('expenses');
+}
+
+function deleteExpense(id) { if(confirm("Delete?")) { expenses = expenses.filter(e => e.id != id); localStorage.setItem('france_expenses', JSON.stringify(expenses)); showTab('expenses'); } }
+function selectPaid(p) { paid = p; document.querySelectorAll("[id^=paid-]").forEach(e => e.classList.remove("selected")); document.getElementById("paid-"+p).classList.add("selected"); }
+function toggleShare(p) { if(shared.includes(p)) shared = shared.filter(x=>x!==p); else shared.push(p); document.getElementById("share-"+p).classList.toggle("selected"); }
+
+// 預設啟動
+window.onload = () => showTab('itinerary');
+</script>
+</body>
+</html>
