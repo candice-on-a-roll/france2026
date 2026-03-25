@@ -80,7 +80,7 @@ select.input-field {
 .map-btn { display: inline-flex; align-items: center; gap: 3px; background: #f0f4ff; color: #3498db; border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; text-decoration: none; cursor: pointer; white-space: nowrap; }
 
 .matrix-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
-.matrix-table th, .matrix-table td { padding: 7px 2px; border: 1px solid #f0f0f0; text-align: center; word-break: break-word; }
+.matrix-table th, .matrix-table td { padding: 6px 2px; border: 1px solid #f0f0f0; text-align: center; white-space: nowrap; overflow: hidden; }
 
 .form-row { display: flex; gap: 12px; margin-bottom: 15px; }
 .form-row > div { flex: 1; }
@@ -106,6 +106,14 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYKXXhptVWefMeOax19
 const peopleColors = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
 let expenses = [];
 let paid = "", shared = [], editingId = null;
+
+// Tombstone — persists deleted items across hard refreshes until sheet confirms removal
+const TS_KEY = 'exp_tombstones';
+const tsGet  = ()      => JSON.parse(localStorage.getItem(TS_KEY) || '[]');
+const tsAdd  = (fp)    => { const t = tsGet(); if (!t.includes(fp)) { t.push(fp); localStorage.setItem(TS_KEY, JSON.stringify(t)); } };
+const tsClean = (fps)  => { const alive = tsGet().filter(fp => fps.includes(fp)); localStorage.setItem(TS_KEY, JSON.stringify(alive)); };
+const expFP  = row     => [row.Date, getField(row,'Category','Item'), row.Amount, row.Currency,
+                            getField(row,'PaidBy','Paid By','paid_by','Paid by','paidby','PAIDBY')].join('|');
 
 // ── Date/Time helpers ──────────────────────────────────────────────────────
 // Google Apps Script serialises Date values as UTC ISO strings.
@@ -166,6 +174,11 @@ function fmtT(raw) {
 
 function fmtN(num) {
     return parseFloat(num || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+function fmtK(num) {
+    const n = parseFloat(num || 0);
+    if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    return Math.round(n).toString();
 }
 
 // ── Field accessor — handles column-header name variations from the sheet ──
@@ -293,24 +306,30 @@ async function renderItin() {
 async function renderExpView(skipFetch = false) {
     if (!skipFetch) {
         const data = await fetchData('Expenses');
-    expenses = data.map((row, i) => {
-        const fullItem = getField(row, 'Category', 'Item');
-        // PaidBy — try every likely header variant
-        const paidRaw   = getField(row, 'PaidBy', 'Paid By', 'paid_by', 'Paid by', 'paidby', 'PAIDBY');
-        // SharedWith — try every likely header variant
-        const sharedRaw = getField(row, 'SharedWith', 'Shared With', 'shared_with', 'SharedBy', 'Shared By', 'shared_by', 'sharedwith', 'SHAREDWITH');
-        return {
-            id: i,
-            date:   fmtD(row.Date),
-            cat:    fullItem.split(':')[0].trim(),
-            desc:   fullItem.includes(':') ? fullItem.split(':')[1].trim() : fullItem,
-            amount:   parseFloat(row.Amount || 0),
-            currency: row.Currency || "HKD",
-            paid:     paidRaw.toString().trim().toUpperCase(),
-            shared:   sharedRaw.toString().split(',').map(x => x.trim().toUpperCase()).filter(x => peopleColors[x]),
-            settled:  (getField(row, 'Settled', 'settled', 'SETTLED')||'').toString().trim().toUpperCase() === 'YES'
-        };
-        }).filter(e => e.amount > 0);
+        const tombstones = tsGet();
+        // Clean tombstones whose rows are already gone from the sheet (fp no longer exists)
+        const allFPs = data.map(expFP);
+        tsClean(allFPs);
+        const activeTombstones = tsGet();
+        expenses = data.map((row, i) => {
+            const fullItem = getField(row, 'Category', 'Item');
+            // PaidBy — try every likely header variant
+            const paidRaw   = getField(row, 'PaidBy', 'Paid By', 'paid_by', 'Paid by', 'paidby', 'PAIDBY');
+            // SharedWith — try every likely header variant
+            const sharedRaw = getField(row, 'SharedWith', 'Shared With', 'shared_with', 'SharedBy', 'Shared By', 'shared_by', 'sharedwith', 'SHAREDWITH');
+            return {
+                id: i,
+                fp:       expFP(row),
+                date:     fmtD(row.Date),
+                cat:      fullItem.split(':')[0].trim(),
+                desc:     fullItem.includes(':') ? fullItem.split(':')[1].trim() : fullItem,
+                amount:   parseFloat(row.Amount || 0),
+                currency: row.Currency || "HKD",
+                paid:     paidRaw.toString().trim().toUpperCase(),
+                shared:   sharedRaw.toString().split(',').map(x => x.trim().toUpperCase()).filter(x => peopleColors[x]),
+                settled:  (getField(row, 'Settled', 'settled', 'SETTLED')||'').toString().trim().toUpperCase() === 'YES'
+            };
+        }).filter(e => e.amount > 0 && !activeTombstones.includes(e.fp));
     }
 
     const { net, matrix } = calcMatrix();
@@ -334,8 +353,8 @@ async function renderExpView(skipFetch = false) {
             ${Object.keys(peopleColors).map(p1 => `<tr>
                 <td><div class="person" style="background:${peopleColors[p1]}; width:20px; height:20px; font-size:8px; margin:auto; cursor:default;">${p1}</div></td>
                 ${Object.keys(peopleColors).map(p2 => p1===p2
-                    ? `<td style="font-weight:700; color:${net[p1]>=0?'#27ae60':'#e74c3c'}">${fmtN(net[p1])}</td>`
-                    : `<td style="color:#e74c3c">${matrix[p1][p2]>0?'-'+fmtN(matrix[p1][p2]):'-'}</td>`
+                    ? `<td style="font-weight:700; color:${net[p1]>=0?'#27ae60':'#e74c3c'}">${fmtK(net[p1])}</td>`
+                    : `<td style="color:#e74c3c">${matrix[p1][p2]>0?'-'+fmtK(matrix[p1][p2]):'-'}</td>`
                 ).join("")}
             </tr>`).join("")}
         </table></div>
@@ -510,11 +529,13 @@ async function saveData() {
 
 async function deleteExpense(id) {
     if (!confirm('Delete this expense?')) return;
+    const target = expenses.find(e => e.id === id);
     fetch(SCRIPT_URL, {
         method: "POST", mode: "no-cors",
         body: JSON.stringify({ action: 'delete', sheet: 'Expenses', rowIndex: id + 2 })
     });
-    // Optimistically remove from memory and re-render without re-fetching
+    // Tombstone so it stays hidden even after hard refresh (in case sheet delete is delayed)
+    if (target) tsAdd(target.fp);
     expenses = expenses.filter(e => e.id !== id);
     localStorage.removeItem('cache_v10_Expenses');
     renderExpView(true);
@@ -525,7 +546,8 @@ async function hardRefresh() {
     btn.textContent = '↺ updating…';
     btn.style.pointerEvents = 'none';
 
-    localStorage.clear();
+    localStorage.removeItem('cache_v10_Itinerary');
+    localStorage.removeItem('cache_v10_Expenses');
     expenses = [];
 
     // Fetch both sheets in parallel — total wait = slowest sheet, not sum of both
