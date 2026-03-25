@@ -62,6 +62,7 @@ select.input-field {
 .btn-confirm { background: var(--navy); color: white; width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 17px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 10px; }
 .btn-cancel { background: none; color: var(--light-gray); width: 100%; padding: 10px; border: none; font-size: 14px; font-family: 'Inter', sans-serif; cursor: pointer; }
 .btn-delete { background: #fff0f0; color: #e74c3c; border: 1.5px solid #fcc; width: 100%; padding: 18px; border-radius: 15px; font-size: 17px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 5px; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .itin-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid #f8f8f8; }
 .itin-item:last-child { border-bottom: none; }
@@ -294,13 +295,19 @@ async function renderExpView(skipFetch = false) {
     </div>
     <button class="btn-confirm" style="width:calc(100% - 30px); margin:10px 15px;" onclick="openAdd()">+ Add Expense</button>`;
 
+    const catIcon = { Dining:'🍽️', Transport:'🚗', Hotel:'🏨', Activity:'🎡', Shopping:'🛍️', Others:'💳' };
+
     let idx = 0;
     for (const date in grouped) {
         html += `<div class="date-header" onclick="toggleDate('ex${idx}')">${date}</div>
-                 <div class="date-content open" id="cont-ex${idx}">${grouped[date].map(e => `
-                    <div class="card" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="openAdd(${e.id})">
-                        <div><div style="font-weight:600;">${e.cat}: ${e.desc}</div><div style="font-size:11px; color:#999;">${e.paid} paid</div></div>
-                        <div style="font-weight:700;">${fmtN(e.amount)} ${e.currency}</div>
+                 <div class="date-content" id="cont-ex${idx}">${grouped[date].map(e => `
+                    <div class="card" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; gap:10px;" onclick="openAdd(${e.id})">
+                        <div style="font-size:26px;line-height:1;flex-shrink:0;">${catIcon[e.cat] || '💳'}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.cat}: ${e.desc}</div>
+                            <div style="font-size:11px;color:#999;">${e.paid} paid</div>
+                        </div>
+                        <div style="font-weight:700;flex-shrink:0;">${fmtN(e.amount)} ${e.currency}</div>
                     </div>`).join('')}</div>`;
         idx++;
     }
@@ -446,9 +453,22 @@ async function hardRefresh() {
     if (active === 'itinerary') renderItin(); else renderExpView();
 }
 
-window.onload = () => {
+window.onload = async () => {
+    // Show loading state immediately so the user knows something is happening
+    document.getElementById('tab-itinerary').classList.add('active');
+    document.getElementById('itinerary-page').style.display = 'block';
+    document.getElementById('expenses-page').style.display = 'none';
+    document.getElementById('itinerary-list').innerHTML = `
+        <div style="text-align:center;padding:60px 20px;color:#aaa;">
+            <div style="font-size:32px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block;">↺</div>
+            <div style="font-size:14px;margin-top:8px;">Loading your trip…</div>
+        </div>`;
+
+    // Fetch both sheets in parallel — tab switching will be instant after this
+    await Promise.all([fetchData('Itinerary'), fetchData('Expenses')]);
+
+    // Now render the itinerary (expenses data is already cached for instant tab switch)
     showTab('itinerary');
-    fetchData('Expenses'); // prefetch in background so Expenses tab is instant
 };
 </script>
 </body>
