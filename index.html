@@ -212,8 +212,13 @@ async function renderItin() {
     let html = ""; let idx = 0;
     for (const date in grouped) {
         const items = grouped[date];
-        // Aggregate unique locations and people across all events on this date
-        const locations = [...new Set(items.map(i => i.Location).filter(Boolean))].join(' · ');
+        // Icons for special location types (shown per-item, excluded from date header)
+        const specialLoc = { hotel:'🏨', train:'🚂', flight:'✈️' };
+        const isSpecial = loc => loc && Object.keys(specialLoc).some(k => loc.toLowerCase().includes(k));
+        const locIcon = loc => { const k = Object.keys(specialLoc).find(k => (loc||'').toLowerCase().includes(k)); return k ? specialLoc[k] : ''; };
+
+        // Aggregate unique locations for date header — skip hotel/train/flight (shown inline)
+        const locations = [...new Set(items.map(i => i.Location).filter(l => l && !isSpecial(l)))].join(' · ');
         const allPeople = [...new Set(items.flatMap(i =>
             (i.People||'').split(',').map(p=>p.trim().toUpperCase()).filter(p=>peopleColors[p])
         ))];
@@ -232,11 +237,14 @@ async function renderItin() {
         </div>
         <div class="date-content" id="cont-it${idx}">
             <div class="card">${items.map(item => {
-                const mapLink = (item['Maps Link']||'').trim();
+                const mapLink  = (item['Maps Link']||'').trim();
+                const icon     = locIcon(item.Location);
+                const timeRaw  = (item.Time||'').toString().trim().toLowerCase();
+                const timeDisp = timeRaw === 'night' ? '🌙 night' : fmtT(item.Time);
                 return `<div class="itin-item">
-                    <div class="itin-time">${fmtT(item.Time)}</div>
+                    <div class="itin-time">${timeDisp}</div>
                     <div style="flex:1;min-width:0;">
-                        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${item.Activity}</div>
+                        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${icon ? `<span style="margin-right:5px;">${icon}</span>` : ''}${item.Activity}</div>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                             <div style="display:flex;gap:4px;flex-wrap:wrap;">${makePeopleIcons(item.People)}</div>
                             ${mapLink ? `<a href="${mapLink}" target="_blank" class="map-btn">📍 Map</a>` : ''}
