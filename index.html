@@ -427,12 +427,29 @@ async function deleteExpense(id) {
     renderExpView(true);
 }
 
-function hardRefresh() {
+async function hardRefresh() {
+    const btn = document.getElementById('refresh-btn');
+    btn.textContent = '↺ updating…';
+    btn.style.pointerEvents = 'none';
+
     localStorage.clear();
-    location.reload();
+    expenses = [];
+
+    // Fetch both sheets in parallel — total wait = slowest sheet, not sum of both
+    await Promise.all([fetchData('Itinerary'), fetchData('Expenses')]);
+
+    btn.textContent = '↺ refresh data';
+    btn.style.pointerEvents = '';
+
+    // Re-render whichever tab is active (no page reload needed)
+    const active = document.querySelector('.tab.active').id.replace('tab-', '');
+    if (active === 'itinerary') renderItin(); else renderExpView();
 }
 
-window.onload = () => showTab('itinerary');
+window.onload = () => {
+    showTab('itinerary');
+    fetchData('Expenses'); // prefetch in background so Expenses tab is instant
+};
 </script>
 </body>
 </html>
