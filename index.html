@@ -272,9 +272,9 @@ async function renderItin() {
                 const timeRaw  = (item.Time||'').toString().trim().toLowerCase();
                 const timeDisp = timeRaw === 'night' ? '🌙 night' : fmtT(item.Time);
                 return `<div class="itin-item">
-                    <div class="itin-time">${timeDisp}</div>
+                    <div class="itin-time">${timeDisp}${icon ? `<div style="font-size:20px;margin-top:5px;line-height:1;">${icon}</div>` : ''}</div>
                     <div style="flex:1;min-width:0;">
-                        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${icon ? `<span style="margin-right:5px;">${icon}</span>` : ''}${item.Activity}</div>
+                        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${item.Activity}</div>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                             <div style="display:flex;gap:4px;flex-wrap:wrap;">${makePeopleIcons(item.People)}</div>
                             ${mapLink ? `<a href="${mapLink}" target="_blank" class="map-btn">📍 Map</a>` : ''}
