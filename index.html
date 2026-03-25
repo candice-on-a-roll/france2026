@@ -6,7 +6,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root { --navy: #1a2a3a; --wine: #8e2121; --bg: #f8f9fa; }
-body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: antialiased; }
 .header { padding: 30px 20px; background: var(--navy); color: white; text-align: center; border-radius: 0 0 25px 25px; }
 .title { font-family: 'Playfair Display', serif; font-size: 26px; letter-spacing: 1px; }
 
@@ -14,29 +15,36 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color
 .tab { flex: 1; text-align: center; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; color: #999; cursor: pointer; }
 .tab.active { background: var(--navy); color: white; }
 
-.card { background: white; border-radius: 18px; padding: 18px; margin: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid #eee; }
+/* 日期摺疊樣式 */
+.date-section { margin-bottom: 5px; }
+.date-header { background: white; padding: 15px 20px; margin: 10px 15px; border-radius: 12px; font-weight: 700; color: var(--navy); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; }
+.date-header::after { content: '▼'; font-size: 10px; color: #ccc; transition: 0.3s; }
+.date-header.open::after { transform: rotate(180deg); }
+.date-content { display: none; padding-bottom: 10px; }
+.date-content.open { display: block; }
 
-/* 日期分組標題 */
-.date-header { padding: 10px 20px; font-weight: 700; color: var(--navy); font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+.card { background: white; border-radius: 15px; padding: 15px; margin: 5px 15px 10px; border: 1px solid #eee; }
 
-/* Form 樣式 */
+/* Form 樣式修復 */
 .form-group { margin-bottom: 15px; }
 .form-group label { display: block; font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; margin-bottom: 5px; }
-.input-field { width: 100%; box-sizing: border-box; height: 45px; padding: 10px 15px; background: #f0f2f5; border: 2px solid transparent; border-radius: 10px; font-size: 15px; font-family: 'Inter', sans-serif; outline: none; }
+.input-field { width: 100%; height: 48px; padding: 10px 15px; background: #f0f2f5; border: 1px solid transparent; border-radius: 10px; font-size: 15px; outline: none; -webkit-appearance: none; }
+.input-field:focus { background: white; border-color: #ddd; }
 
-/* Icon 列 */
-.people-row { display: flex; flex-direction: row; gap: 8px; padding: 5px 0; overflow-x: auto; }
-.person { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 700; border: 2.5px solid transparent; flex-shrink: 0; transition: 0.2s; }
+.people-row { display: flex; gap: 8px; overflow-x: auto; padding: 5px 0; -webkit-overflow-scrolling: touch; }
+.person { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 700; border: 2.5px solid transparent; flex-shrink: 0; transition: 0.2s; }
 .person.selected { border-color: #3498db; transform: scale(1.1); box-shadow: 0 3px 8px rgba(52,152,219,0.4); }
 
+/* Matrix */
+.matrix-container { overflow-x: auto; }
 .matrix-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; }
 .matrix-table th, .matrix-table td { padding: 8px 4px; border: 1px solid #f0f0f0; }
 
-.btn-save { background: var(--navy); color: white; width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 16px; font-weight: 600; margin-top: 10px; cursor: pointer; font-family: 'Inter', sans-serif; }
-.btn-cancel { background: none; color: #999; width: 100%; padding: 10px; border: none; font-size: 13px; cursor: pointer; font-family: 'Inter', sans-serif; }
+.btn-save { background: var(--navy); color: white; width: calc(100% - 30px); margin: 10px 15px; padding: 16px; border-radius: 12px; border: none; font-size: 16px; font-weight: 600; cursor: pointer; }
+.btn-cancel { background: none; color: #999; width: 100%; padding: 10px; border: none; font-size: 13px; cursor: pointer; }
 
-/* Itinerary 詳細樣式 */
-.itin-item { display: flex; gap: 12px; padding: 15px 0; border-bottom: 1px solid #f0f0f0; }
+.itin-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f8f8f8; }
+.itin-item:last-child { border-bottom: none; }
 .itin-time { color: var(--wine); font-weight: 700; font-size: 13px; min-width: 45px; }
 </style>
 </head>
@@ -57,13 +65,13 @@ let people = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", 
 let expenses = [];
 let paid = "", shared = [];
 
-// 格式化日期：回傳 01 Apr
+// 強力日期轉換
 function fmtD(raw) {
     if (!raw) return "TBD";
     let d = new Date(raw);
     if (isNaN(d.getTime())) return raw;
-    if (d.getFullYear() < 1910) d = new Date(); 
-    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+    if (d.getFullYear() < 1910) d = new Date(); // 修復 1899 錯誤
+    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(d);
 }
 
 function showTab(t) {
@@ -74,8 +82,14 @@ function showTab(t) {
     if(t==='itinerary') refreshItin(); else fetchExp();
 }
 
+// 摺疊功能切換
+function toggleDate(id) {
+    document.getElementById('head-'+id).classList.toggle('open');
+    document.getElementById('cont-'+id).classList.toggle('open');
+}
+
 // ---------------------------
-// ITINERARY (Group By Date + Location + People)
+// ITINERARY (Accordion + Details)
 // ---------------------------
 async function refreshItin() {
     try {
@@ -89,30 +103,38 @@ async function refreshItin() {
         }, {});
 
         let html = "";
+        let idx = 0;
         for(let date in grouped) {
-            html += `<div class="date-header">${date}</div>`;
-            grouped[date].forEach(item => {
-                let pList = item.People ? item.People.split(',').map(x=>x.trim().toUpperCase()) : [];
-                html += `<div class="card">
-                    <div class="itin-item">
-                        <div class="itin-time">${item.Time || '--:--'}</div>
-                        <div style="flex:1;">
-                            <div style="font-size:15px; font-weight:600;">${item.Activity}</div>
-                            <div style="font-size:12px; color:#999; margin:4px 0;">📍 ${item.Location || 'No location'}</div>
-                            <div class="people-row">
-                                ${pList.map(p => people[p] ? `<div class="person" style="background:${people[p]}; width:20px; height:20px; font-size:8px;">${p}</div>` : '').join('')}
-                            </div>
-                        </div>
+            html += `
+            <div class="date-section">
+                <div class="date-header" id="head-it${idx}" onclick="toggleDate('it${idx}')">${date}</div>
+                <div class="date-content" id="cont-it${idx}">
+                    <div class="card">
+                        ${grouped[date].map(item => {
+                            let pList = item.People ? item.People.split(',').map(x=>x.trim().toUpperCase()) : [];
+                            return `
+                            <div class="itin-item">
+                                <div class="itin-time">${item.Time || '--:--'}</div>
+                                <div style="flex:1;">
+                                    <div style="font-size:14px; font-weight:600;">${item.Activity}</div>
+                                    <div style="font-size:11px; color:#999; margin:2px 0;">📍 ${item.Location || ''}</div>
+                                    <div class="people-row">
+                                        ${pList.map(p => people[p] ? `<div class="person" style="background:${people[p]}; width:18px; height:18px; font-size:8px;">${p}</div>` : '').join('')}
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('')}
                     </div>
-                </div>`;
-            });
+                </div>
+            </div>`;
+            idx++;
         }
         document.getElementById("itinerary-list").innerHTML = html;
-    } catch(e) { console.error(e); }
+    } catch(e) {}
 }
 
 // ---------------------------
-// EXPENSES (Group By Date)
+// EXPENSES (Accordion + Matrix)
 // ---------------------------
 async function fetchExp() {
     try {
@@ -145,12 +167,12 @@ function renderExpenses() {
     }, {});
 
     let html = `<div class="card">
-        <label style="font-size:11px; font-weight:bold; color:#aaa;">SETTLEMENT (HKD)</label>
-        <div style="overflow-x:auto; margin-top:10px;">
+        <label style="font-size:11px; font-weight:700; color:#aaa;">BALANCE (HKD)</label>
+        <div class="matrix-container">
             <table class="matrix-table">
-                <tr><th></th>${Object.keys(people).map(p=>`<th><div class="person" style="background:${people[p]}; width:20px; height:20px; font-size:8px; margin:auto;">${p}</div></th>`).join("")}</tr>
+                <tr><th></th>${Object.keys(people).map(p=>`<th><div class="person" style="background:${people[p]}; width:20px; height:20px; margin:auto;">${p}</div></th>`).join("")}</tr>
                 ${Object.keys(people).map(p1 => `<tr>
-                    <td><div class="person" style="background:${people[p1]}; width:20px; height:20px; font-size:8px; margin:auto;">${p1}</div></td>
+                    <td><div class="person" style="background:${people[p1]}; width:20px; height:20px; margin:auto;">${p1}</div></td>
                     ${Object.keys(people).map(p2 => {
                         if(p1===p2) return `<td style="font-weight:700; color:${net[p1]>=0?'#27ae60':'#e74c3c'}">${net[p1].toFixed(0)}</td>`;
                         return `<td style="color:#e74c3c">${matrix[p1][p2]>0?'-'+matrix[p1][p2].toFixed(0):'-'}</td>`;
@@ -159,16 +181,22 @@ function renderExpenses() {
             </table>
         </div>
     </div>
-    <button class="btn-save" style="margin: 0 15px; width: calc(100% - 30px);" onclick="openAdd()">+ Add Expense</button>`;
+    <button class="btn-save" onclick="openAdd()">+ Add Expense</button>`;
 
+    let idx = 0;
     for(let date in grouped) {
-        html += `<div class="date-header" style="font-size:14px; margin-top:10px;">${date}</div>`;
-        grouped[date].forEach(e => {
-            html += `<div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:12px 15px;" onclick="openAdd(${e.id})">
-                <div><div style="font-weight:600; font-size:14px;">${e.item}</div><div style="font-size:11px; color:#999;">${e.paid} paid</div></div>
-                <div style="text-align:right;"><div style="font-weight:700;">${e.amount} ${e.currency}</div></div>
-            </div>`;
-        });
+        html += `
+        <div class="date-section">
+            <div class="date-header" id="head-ex${idx}" onclick="toggleDate('ex${idx}')">${date}</div>
+            <div class="date-content open" id="cont-ex${idx}">
+                ${grouped[date].map(e => `
+                <div class="card" style="display:flex; justify-content:space-between; align-items:center; margin:5px 15px;" onclick="openAdd(${e.id})">
+                    <div><div style="font-weight:600; font-size:14px;">${e.item}</div><div style="font-size:11px; color:#999;">${e.paid} paid</div></div>
+                    <div style="font-weight:700;">${e.amount} ${e.currency}</div>
+                </div>`).join('')}
+            </div>
+        </div>`;
+        idx++;
     }
     document.getElementById("expenses-content").innerHTML = html;
 }
@@ -188,7 +216,7 @@ function calcMatrix() {
 }
 
 // ---------------------------
-// FORM (Date, Category, Items ALL IN)
+// FORM (修復排版 & 日期格式)
 // ---------------------------
 function openAdd(id = null) {
     let e = (id !== null) ? expenses.find(x => x.id === id) : null;
@@ -198,27 +226,18 @@ function openAdd(id = null) {
     document.getElementById("expenses-content").innerHTML = `
     <div class="card">
         <h2 style="font-family:'Playfair Display'; margin:0 0 20px 0;">${e?'Edit':'New'} Expense</h2>
-        
-        <div style="display:flex; gap:12px; margin-bottom:15px;">
-            <div style="flex:1;"><label>Date</label><input id="f-date" type="date" class="input-field" value="${new Date().toISOString().split('T')[0]}"></div>
-            <div style="flex:1;"><label>Category</label>
-                <select id="f-cat" class="input-field">
-                    <option>Dining</option><option>Transport</option><option>Hotel</option><option>Others</option>
-                </select>
-            </div>
+        <div style="display:flex; gap:12px;">
+            <div style="flex:1;"><div class="form-group"><label>Date</label><input id="f-date" type="date" class="input-field" value="${new Date().toISOString().split('T')[0]}"></div></div>
+            <div style="flex:1;"><div class="form-group"><label>Category</label><select id="f-cat" class="input-field"><option>Dining</option><option>Transport</option><option>Hotel</option><option>Others</option></select></div></div>
         </div>
-
-        <div class="form-group"><label>Item Description</label><input id="f-item" class="input-field" placeholder="e.g. Lunch" value="${e?e.item:''}"></div>
-        
-        <div style="display:flex; gap:12px; margin-bottom:15px;">
-            <div style="flex:1;"><label>Currency</label><select id="f-curr" class="input-field"><option>HKD</option><option>EUR</option></select></div>
-            <div style="flex:2;"><label>Amount</label><input id="f-amt" type="number" class="input-field" value="${e?e.amount:''}"></div>
+        <div class="form-group"><label>Item Description</label><input id="f-item" class="input-field" value="${e?e.item:''}"></div>
+        <div style="display:flex; gap:12px;">
+            <div style="flex:1;"><div class="form-group"><label>Currency</label><select id="f-curr" class="input-field"><option>HKD</option><option>EUR</option></select></div></div>
+            <div style="flex:2;"><div class="form-group"><label>Amount</label><input id="f-amt" type="number" class="input-field" value="${e?e.amount:''}"></div></div>
         </div>
-
         <div class="form-group"><label>Paid By</label><div class="people-row">${Object.keys(people).map(p=>`<div id="p-${p}" class="person ${paid===p?'selected':''}" style="background:${people[p]}" onclick="selP('${p}')">${p}</div>`).join("")}</div></div>
         <div class="form-group"><label>Shared With</label><div class="people-row">${Object.keys(people).map(p=>`<div id="s-${p}" class="person ${shared.includes(p)?'selected':''}" style="background:${people[p]}" onclick="tglS('${p}')">${p}</div>`).join("")}</div></div>
-        
-        <button class="btn-save" onclick="saveData()">Confirm</button>
+        <button class="btn-save" style="width:100%; margin:10px 0;" onclick="saveData()">Confirm</button>
         <button class="btn-cancel" onclick="showTab('expenses')">Cancel</button>
     </div>`;
 }
@@ -228,7 +247,7 @@ function tglS(p) { if(shared.includes(p)) shared=shared.filter(x=>x!==p); else s
 
 async function saveData() {
     let amt = document.getElementById('f-amt').value;
-    if(!amt || !paid || !shared.length) return alert("Fill all fields!");
+    if(!amt || !paid || !shared.length) return alert("Missing info!");
     showTab('expenses');
     fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ 
         sheet: "Expenses", action: "add", 
