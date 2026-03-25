@@ -44,7 +44,7 @@ label, option, .history-date { text-transform: capitalize !important; }
 </div>
 
 <script>
-let SCRIPT_URL = "https://script.google.com/macros/s/AKfycby197Wu8ZbvibClK36DiXXIpYvf2fxSCQcF2szHffwMY4Ov-AjgX9BGK42z-qk7WDJ9lA/exec";
+let SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyjWMRaRIO_zUH2r3Thp9Y6KApKWtD81aji67qh_Ux3Pmo_rCi7i2_KYcdNCBXWlwOXaA/exec";
 let people = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d63031", K:"#0984e3", S:"#6ab04c" };
 let expenses = JSON.parse(localStorage.getItem('france_expenses') || "[]");
 let paid = "", shared = [];
@@ -65,39 +65,78 @@ function showTab(tabName) {
 }
 
 // 新增：去 Google Sheets 攞返所有開支紀錄
+// 1. 每次開 Expenses Tab 都會執行呢個
 async function fetchExpenses() {
     const contentEl = document.getElementById("expenses-content");
     
-    // 1. 先顯示本地現有嘅數 (秒開)
-    renderExpenses(); 
+    // 先攞手機 Cache 出嚟顯示（確保唔會空白）
+    let localData = localStorage.getItem('france_expenses');
+    if (localData) {
+        expenses = JSON.parse(localData);
+        renderExpenses();
+    }
 
     try {
-        // 2. 去 Google Sheets 攞最新嘅 Expenses Sheet
+        // 去 Google Sheets 攞返所有歷史紀錄
         const res = await fetch(`${SCRIPT_URL}?sheet=Expenses`);
         const data = await res.json();
         
         if (data && data.length > 0) {
-            // 3. 將 Sheets 嘅格式轉返做你 App 用的格式
-            // 假設你 Sheet 格式係 [Date, Item, Currency, Amount, ..., PaidBy, SharedWith]
-            const formattedExpenses = data.map((row, index) => ({
-                id: index,
-                date: row.Date || row[0],
-                item: row.Category || row[1],
-                currency: row.Currency || row[2],
-                amount: parseFloat(row.Amount || row[3]),
-                paid: row.PaidBy || row[6],
-                shared: (row.SharedWith || row[7]).split(',').map(s => s.trim())
+            // 將 Sheets 的格式對應返 App
+            expenses = data.map((row, index) => ({
+                id: Date.now() + index,
+                date: row.Date || row["Date"], 
+                item: row.Category || row["Category"],
+                currency: row.Currency || row["Currency"],
+                amount: parseFloat(row.Amount || row["Amount"]),
+                paid: row.PaidBy || row["PaidBy"],
+                shared: (row.SharedWith || row["SharedWith"] || "").split(',').map(s => s.trim())
             }));
-
-            // 4. 更新 LocalStorage 並重新渲染
-            expenses = formattedExpenses;
+            
+            // 存入手機並更新畫面
             localStorage.setItem('france_expenses', JSON.stringify(expenses));
             renderExpenses();
-            console.log("Expenses synced from Sheets.");
         }
     } catch (e) {
-        console.error("Sync expenses failed:", e);
+        console.error("Sync failed:", e);
     }
+}
+
+// 2. 儲存開支時，先存本地，再傳上網
+async function saveExp(id) {
+    let amt = document.getElementById('amount').value;
+    if(!amt || !paid || !shared.length) return alert("Missing fields");
+
+    let newExp = {
+        id: id || Date.now(),
+        date: document.getElementById('exp-date').value.split('-').reverse().join('/'),
+        item: document.getElementById('item').value,
+        amount: parseFloat(amt),
+        currency: document.getElementById('currency').value,
+        paid: paid,
+        shared: [...shared]
+    };
+
+    // 【核心改動】：先更新本地變數，確保畫面即時見到
+    if(id) expenses = expenses.filter(e => e.id != id);
+    expenses.push(newExp);
+    localStorage.setItem('france_expenses', JSON.stringify(expenses));
+    
+    // 即刻返去 Expenses 頁面睇到條數
+    showTab('expenses');
+
+    // 背景傳去 Google Sheet
+    try {
+        await fetch(SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify({
+                sheet: "Expenses",
+                action: "add",
+                rowData: [newExp.date, newExp.item, newExp.currency, newExp.amount, "", 8.4, newExp.paid, newExp.shared.join(", ")]
+            })
+        });
+    } catch (e) { console.log("Cloud sync failed, kept in local."); }
 }
 
 // 【1】Itinerary 渲染
