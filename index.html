@@ -244,11 +244,11 @@ async function renderItin() {
     for (const date in grouped) {
         const items = grouped[date];
         // Icons for special location types (shown per-item, excluded from date header)
-        const specialLoc = { hotel:'🏨', train:'🚂', flight:'✈️' };
+        const specialLoc = { hotel:'🏨', train:'🚂', flight:'✈️', taxi:'🚕' };
         const isSpecial = loc => loc && Object.keys(specialLoc).some(k => loc.toLowerCase().includes(k));
         const locIcon = loc => { const k = Object.keys(specialLoc).find(k => (loc||'').toLowerCase().includes(k)); return k ? specialLoc[k] : ''; };
 
-        // Aggregate unique locations for date header — skip hotel/train/flight (shown inline)
+        // Aggregate unique locations for date header — skip hotel/train/flight/taxi (shown inline)
         const locations = [...new Set(items.map(i => i.Location).filter(l => l && !isSpecial(l)))].join(' · ');
         const allPeople = [...new Set(items.flatMap(i =>
             (i.People||'').split(',').map(p=>p.trim().toUpperCase()).filter(p=>peopleColors[p])
@@ -271,7 +271,7 @@ async function renderItin() {
                 const mapLink  = (item['Maps Link']||'').trim();
                 const icon     = locIcon(item.Location);
                 const timeRaw  = (item.Time||'').toString().trim().toLowerCase();
-                const isHotel  = (item.Location||'').toLowerCase().includes('hotel');
+                const isHotel  = isSpecial(item.Location) && (item.Location||'').toLowerCase().includes('hotel');
                 const timeDisp = (timeRaw === 'night' || isHotel) ? '' : fmtT(item.Time);
                 return `<div class="itin-item">
                     <div class="itin-time" style="text-align:center;">${timeDisp}${icon ? `<div style="font-size:22px;margin-top:${timeDisp ? '5' : '0'}px;line-height:1;">${icon}</div>` : ''}</div>
@@ -280,7 +280,7 @@ async function renderItin() {
                             <div style="font-size:15px;font-weight:600;">${item.Activity}</div>
                             ${mapLink ? `<a href="${mapLink}" target="_blank" class="map-btn">📍</a>` : ''}
                         </div>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap;">${makePeopleIcons(item.People)}</div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">${makePeopleIcons(item.People)}</div>
                     </div>
                 </div>`;
             }).join('')}</div>
