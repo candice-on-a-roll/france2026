@@ -112,8 +112,13 @@ const TS_KEY = 'exp_tombstones';
 const tsGet  = ()      => JSON.parse(localStorage.getItem(TS_KEY) || '[]');
 const tsAdd  = (fp)    => { const t = tsGet(); if (!t.includes(fp)) { t.push(fp); localStorage.setItem(TS_KEY, JSON.stringify(t)); } };
 const tsClean = (fps)  => { const alive = tsGet().filter(fp => fps.includes(fp)); localStorage.setItem(TS_KEY, JSON.stringify(alive)); };
-const expFP  = row     => [row.Date, getField(row,'Category','Item'), row.Amount, row.Currency,
-                            getField(row,'PaidBy','Paid By','paid_by','Paid by','paidby','PAIDBY')].join('|');
+const expFP  = row     => [
+    String(row.Date||'').substring(0,10),
+    String(getField(row,'Category','Item')).trim(),
+    parseFloat(row.Amount||0).toFixed(2),
+    String(row.Currency||'').trim(),
+    String(getField(row,'PaidBy','Paid By','paid_by','Paid by','paidby','PAIDBY')).trim().toUpperCase()
+].join('|');
 
 // ── Date/Time helpers ──────────────────────────────────────────────────────
 // Google Apps Script serialises Date values as UTC ISO strings.
@@ -316,7 +321,20 @@ async function renderExpView(skipFetch = false) {
                 id: i,
                 fp:       expFP(row),
                 date:     fmtD(row.Date),
-                rawDate:  (() => { const s=(row.Date||'').toString(); if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0,10); try{ const d=new Date(s); return isNaN(d)?'':`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }catch(e){return '';} })(),
+                rawDate:  (() => {
+                    const s = (row.Date||'').toString();
+                    if (!s) return '';
+                    // No-Z (Utilities.formatDate output) — already Paris local, date part is correct
+                    if (s.includes('T') && !s.endsWith('Z') && !s.includes('+'))
+                        return s.split('T')[0];
+                    // Z / UTC string — convert to Paris date to avoid midnight-crossing off-by-one
+                    try {
+                        const dt = new Date(s);
+                        if (isNaN(dt.getTime())) return '';
+                        const p = new Intl.DateTimeFormat('en-CA', { timeZone: PARIS_TZ, year:'numeric', month:'2-digit', day:'2-digit' }).formatToParts(dt);
+                        return `${p.find(x=>x.type==='year').value}-${p.find(x=>x.type==='month').value}-${p.find(x=>x.type==='day').value}`;
+                    } catch(e) { return ''; }
+                })(),
                 cat:      fullItem.split(':')[0].trim(),
                 desc:     fullItem.includes(':') ? fullItem.split(':')[1].trim() : fullItem,
                 amount:   parseFloat(row.Amount || 0),
