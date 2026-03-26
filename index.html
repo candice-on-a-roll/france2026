@@ -276,11 +276,11 @@ async function renderItin() {
                 return `<div class="itin-item">
                     <div class="itin-time" style="text-align:center;">${timeDisp}${icon ? `<div style="font-size:22px;margin-top:${timeDisp ? '5' : '0'}px;line-height:1;">${icon}</div>` : ''}</div>
                     <div style="flex:1;min-width:0;">
-                        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${item.Activity}</div>
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                            <div style="display:flex;gap:4px;flex-wrap:wrap;">${makePeopleIcons(item.People)}</div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;">
+                            <div style="font-size:15px;font-weight:600;">${item.Activity}</div>
                             ${mapLink ? `<a href="${mapLink}" target="_blank" class="map-btn">📍</a>` : ''}
                         </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;">${makePeopleIcons(item.People)}</div>
                     </div>
                 </div>`;
             }).join('')}</div>
