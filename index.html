@@ -397,8 +397,8 @@ function calcMatrix() {
 }
 
 function openAdd(id = null) {
-    const e = (id !== null) ? expenses.find(x => x.id === id) : null;
-    editingId = (e !== null) ? id : null;
+    const e = (id !== null) ? (expenses.find(x => x.id === id) || null) : null;
+    editingId = e ? e.id : null;
     paid   = e ? e.paid   : "";
     shared = e ? [...e.shared] : [];
 
@@ -526,13 +526,20 @@ async function saveData() {
 
 async function deleteExpense(id) {
     if (!confirm('Delete this expense?')) return;
-    fetch(SCRIPT_URL, {
+    // Optimistically hide the entry immediately
+    expenses = expenses.filter(e => e.id !== id);
+    renderExpView(true);
+    // Send delete to sheet
+    await fetch(SCRIPT_URL, {
         method: "POST", mode: "no-cors",
         body: JSON.stringify({ action: 'delete', sheet: 'Expenses', rowIndex: id + 2 })
     });
-    expenses = expenses.filter(e => e.id !== id);
-    localStorage.removeItem('cache_v10_Expenses');
-    renderExpView(true);
+    // Re-fetch after a short delay so local ids stay in sync with the sheet
+    // (avoids amending the wrong row after a delete)
+    setTimeout(async () => {
+        localStorage.removeItem('cache_v10_Expenses');
+        await renderExpView(false);
+    }, 2000);
 }
 
 async function hardRefresh() {
