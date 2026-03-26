@@ -286,7 +286,7 @@ async function renderItin() {
             </div>
         </div>
         <div class="date-content" id="cont-it${idx}">
-            <div class="card">${items.map(item => {
+            <div class="card">${items.filter(item => (item.Activity||'').toString().trim() !== '').map(item => {
                 const mapLink  = (item['Maps Link']||'').trim();
                 const icon     = locIcon(item.Location);
                 const timeRaw  = (item.Time||'').toString().trim().toLowerCase();
