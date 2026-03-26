@@ -316,6 +316,7 @@ async function renderExpView(skipFetch = false) {
                 id: i,
                 fp:       expFP(row),
                 date:     fmtD(row.Date),
+                rawDate:  (() => { try { const d = new Date(row.Date); return isNaN(d)?'':d.toISOString().split('T')[0]; } catch(e){return '';} })(),
                 cat:      fullItem.split(':')[0].trim(),
                 desc:     fullItem.includes(':') ? fullItem.split(':')[1].trim() : fullItem,
                 amount:   parseFloat(row.Amount || 0),
@@ -408,7 +409,7 @@ function openAdd(id = null) {
         <div class="form-row">
             <div>
                 <div class="field-label">Date</div>
-                <input id="f-date" type="date" class="input-field" value="${new Date().toISOString().split('T')[0]}">
+                <input id="f-date" type="date" class="input-field" value="${e ? e.rawDate : new Date().toISOString().split('T')[0]}">
             </div>
             <div>
                 <div class="field-label">Category</div>
@@ -500,6 +501,7 @@ async function saveData() {
             expenses[idx] = {
                 ...expenses[idx],
                 date:     fmtD(rowData[0]),
+                rawDate:  rowData[0],
                 cat,
                 desc:     rowData[1].includes(':') ? rowData[1].split(':')[1].trim() : rowData[1],
                 currency: rowData[2],
