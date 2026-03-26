@@ -7,7 +7,9 @@
 <style>
 :root { --navy: #1a2a3a; --wine: #8e2121; --bg: #f8f9fa; --light-gray: #999; }
 * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
-body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; }
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--bg); margin: 0; color: #333; -webkit-font-smoothing: antialiased; position: fixed; width: 100%; }
+#app { height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: none; }
 .header { padding: 30px 20px; background: var(--navy); color: white; text-align: center; border-radius: 0 0 25px 25px; }
 .title { font-family: 'Playfair Display', serif; font-size: 26px; letter-spacing: 1px; }
 
@@ -104,6 +106,7 @@ select.input-field {
 </style>
 </head>
 <body>
+<div id="app">
 
 <div class="header">
     <div class="title">France 2026</div>
@@ -596,5 +599,6 @@ window.onload = async () => {
     showTab('itinerary');
 };
 </script>
+</div><!-- #app -->
 </body>
 </html>
