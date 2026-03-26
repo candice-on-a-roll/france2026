@@ -472,9 +472,11 @@ function openAdd(id = null) {
             <span class="settled-label">Already settled?</span>
         </div>
 
-        <button class="btn-confirm" onclick="saveData()">Confirm</button>
-        <button class="btn-cancel" onclick="renderExpView()">Cancel</button>
-        ${e ? `<button class="btn-delete" onclick="deleteExpense(${e.id})">🗑 Delete Expense</button>` : ''}
+        <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn-confirm" style="margin-top:0;flex:1;" onclick="saveData()">Confirm</button>
+            <button class="btn-cancel" style="flex:1;border:1.5px solid #eee;border-radius:10px;padding:12px;font-size:14px;" onclick="renderExpView()">Cancel</button>
+        </div>
+        ${e ? `<button class="btn-delete" onclick="deleteExpense(${e.id})">🗑 Delete</button>` : ''}
     </div>`;
 }
 
