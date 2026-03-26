@@ -355,7 +355,7 @@ async function renderExpView(skipFetch = false) {
             </tr>`).join("")}
         </table></div>
     </div>
-    <button class="btn-confirm" style="width:calc(100% - 30px); margin:10px 15px;" onclick="openAdd()">+ Add Expense</button>`;
+    <button onclick="openAdd()" style="background:var(--navy);color:white;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;margin:8px 15px 4px;display:block;">+ Add Expense</button>`;
 
     const catIcon = { Dining:'🍽️', Transport:'🚗', Hotel:'🏨', Shopping:'🛍️', Activity:'🎡', Others:'💳' };
 
@@ -363,13 +363,13 @@ async function renderExpView(skipFetch = false) {
     for (const date of sortedDates) {
         html += `<div class="date-header" onclick="toggleDate('ex${idx}')">${date}</div>
                  <div class="date-content" id="cont-ex${idx}">${grouped[date].map(e => `
-                    <div class="card" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; gap:10px;" onclick="openAdd(${e.id})">
-                        <div style="font-size:26px;line-height:1;flex-shrink:0;">${catIcon[e.cat] || '💳'}</div>
+                    <div class="card" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px;padding:10px 14px;" onclick="openAdd(${e.id})">
+                        <div style="font-size:20px;line-height:1;flex-shrink:0;">${catIcon[e.cat] || '💳'}</div>
                         <div style="flex:1;min-width:0;">
-                            <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.cat}: ${e.desc}${e.settled ? '<span class="badge-settled">✓ settled</span>' : ''}</div>
-                            <div style="font-size:11px;color:#999;">${e.paid} paid</div>
+                            <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.cat}: ${e.desc}${e.settled ? '<span class="badge-settled">✓ settled</span>' : ''}</div>
+                            <div style="font-size:11px;color:#999;margin-top:2px;">${e.paid} paid</div>
                         </div>
-                        <div style="font-weight:700;flex-shrink:0;">${fmtN(e.amount)} ${e.currency}</div>
+                        <div style="font-weight:700;font-size:13px;flex-shrink:0;">${fmtN(e.amount)} ${e.currency}</div>
                     </div>`).join('')}</div>`;
         idx++;
     }
