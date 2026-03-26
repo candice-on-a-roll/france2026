@@ -77,7 +77,7 @@ select.input-field {
 .itin-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid #f8f8f8; }
 .itin-item:last-child { border-bottom: none; }
 .itin-time { color: var(--wine); font-weight: 700; font-size: 13px; min-width: 46px; padding-top: 2px; }
-.map-btn { display: inline-flex; align-items: center; gap: 3px; background: #f0f4ff; color: #3498db; border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.map-btn { display: inline-flex; align-items: center; background: #f0f4ff; border: none; border-radius: 6px; padding: 4px 6px; font-size: 16px; text-decoration: none; cursor: pointer; line-height: 1; }
 
 .matrix-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: auto; }
 .matrix-table th, .matrix-table td { padding: 6px 4px; border: 1px solid #f0f0f0; text-align: center; white-space: nowrap; }
@@ -279,7 +279,7 @@ async function renderItin() {
                         <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${item.Activity}</div>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                             <div style="display:flex;gap:4px;flex-wrap:wrap;">${makePeopleIcons(item.People)}</div>
-                            ${mapLink ? `<a href="${mapLink}" target="_blank" class="map-btn">📍 Map</a>` : ''}
+                            ${mapLink ? `<a href="${mapLink}" target="_blank" class="map-btn">📍</a>` : ''}
                         </div>
                     </div>
                 </div>`;
