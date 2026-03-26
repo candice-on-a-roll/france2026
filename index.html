@@ -107,18 +107,6 @@ const peopleColors = { C:"#E75480", T:"#00b894", B:"#fdcb6e", G:"#e17055", J:"#d
 let expenses = [];
 let paid = "", shared = [], editingId = null;
 
-// Tombstone — persists deleted items across hard refreshes until sheet confirms removal
-const TS_KEY = 'exp_tombstones';
-const tsGet  = ()      => JSON.parse(localStorage.getItem(TS_KEY) || '[]');
-const tsAdd  = (fp)    => { const t = tsGet(); if (!t.includes(fp)) { t.push(fp); localStorage.setItem(TS_KEY, JSON.stringify(t)); } };
-const tsClean = (fps)  => { const alive = tsGet().filter(fp => fps.includes(fp)); localStorage.setItem(TS_KEY, JSON.stringify(alive)); };
-const expFP  = row     => [
-    String(row.Date||'').substring(0,10),
-    String(getField(row,'Category','Item')).trim(),
-    parseFloat(row.Amount||0).toFixed(2),
-    String(row.Currency||'').trim(),
-    String(getField(row,'PaidBy','Paid By','paid_by','Paid by','paidby','PAIDBY')).trim().toUpperCase()
-].join('|');
 
 // ── Date/Time helpers ──────────────────────────────────────────────────────
 // Google Apps Script serialises Date values as UTC ISO strings.
@@ -306,11 +294,6 @@ async function renderItin() {
 async function renderExpView(skipFetch = false) {
     if (!skipFetch) {
         const data = await fetchData('Expenses');
-        const tombstones = tsGet();
-        // Clean tombstones whose rows are already gone from the sheet (fp no longer exists)
-        const allFPs = data.map(expFP);
-        tsClean(allFPs);
-        const activeTombstones = tsGet();
         expenses = data.map((row, i) => {
             const fullItem = getField(row, 'Category', 'Item');
             // PaidBy — try every likely header variant
@@ -319,7 +302,6 @@ async function renderExpView(skipFetch = false) {
             const sharedRaw = getField(row, 'SharedWith', 'Shared With', 'shared_with', 'SharedBy', 'Shared By', 'shared_by', 'sharedwith', 'SHAREDWITH');
             return {
                 id: i,
-                fp:       expFP(row),
                 date:     fmtD(row.Date),
                 rawDate:  (() => {
                     const s = (row.Date||'').toString();
@@ -343,7 +325,7 @@ async function renderExpView(skipFetch = false) {
                 shared:   sharedRaw.toString().split(',').map(x => x.trim().toUpperCase()).filter(x => peopleColors[x]),
                 settled:  (getField(row, 'Settled', 'settled', 'SETTLED')||'').toString().trim().toUpperCase() === 'YES'
             };
-        }).filter(e => e.amount > 0 && !activeTombstones.includes(e.fp));
+        }).filter(e => e.amount > 0);
     }
 
     const { net, matrix } = calcMatrix();
@@ -544,13 +526,10 @@ async function saveData() {
 
 async function deleteExpense(id) {
     if (!confirm('Delete this expense?')) return;
-    const target = expenses.find(e => e.id === id);
     fetch(SCRIPT_URL, {
         method: "POST", mode: "no-cors",
         body: JSON.stringify({ action: 'delete', sheet: 'Expenses', rowIndex: id + 2 })
     });
-    // Tombstone so it stays hidden even after hard refresh (in case sheet delete is delayed)
-    if (target) tsAdd(target.fp);
     expenses = expenses.filter(e => e.id !== id);
     localStorage.removeItem('cache_v10_Expenses');
     renderExpView(true);
@@ -577,6 +556,7 @@ async function hardRefresh() {
 }
 
 window.onload = async () => {
+    localStorage.removeItem('exp_tombstones'); // clean up any stale tombstones from old code
     // Show loading state immediately so the user knows something is happening
     document.getElementById('tab-itinerary').classList.add('active');
     document.getElementById('itinerary-page').style.display = 'block';
