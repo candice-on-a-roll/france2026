@@ -493,10 +493,21 @@ function tglS(p) {
     document.getElementById('s-'+p).classList.toggle('selected');
 }
 
+function lockFormButtons(label = 'Saving…') {
+    document.querySelectorAll('.btn-confirm, .btn-cancel, .btn-delete').forEach(b => {
+        b.disabled = true;
+        b.style.opacity = '0.5';
+        b.style.pointerEvents = 'none';
+    });
+    const confirm = document.querySelector('.btn-confirm');
+    if (confirm) confirm.textContent = label;
+}
+
 async function saveData() {
     const amt      = document.getElementById('f-amt').value;
     const settled  = document.getElementById('f-settled').checked;
     if (!amt || !paid || !shared.length) return alert("Please fill in all details!");
+    lockFormButtons('Saving…');
 
     const rowData = [
         document.getElementById('f-date').value,
@@ -547,6 +558,7 @@ async function saveData() {
 
 async function deleteExpense(id) {
     if (!confirm('Delete this expense?')) return;
+    lockFormButtons('Deleting…');
     fetch(SCRIPT_URL, {
         method: "POST", mode: "no-cors",
         body: JSON.stringify({ action: 'delete', sheet: 'Expenses', rowIndex: id + 2 })
