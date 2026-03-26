@@ -64,6 +64,22 @@ select.input-field {
 .btn-confirm { background: var(--navy); color: white; width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 17px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 10px; }
 .btn-cancel { background: none; color: var(--light-gray); width: 100%; padding: 10px; border: none; font-size: 14px; font-family: 'Inter', sans-serif; cursor: pointer; }
 .btn-delete { background: #fff0f0; color: #e74c3c; border: 1.5px solid #fcc; width: 100%; padding: 18px; border-radius: 15px; font-size: 17px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 5px; }
+/* Compact overrides for the add/amend form */
+.form-compact { font-size: 13px; }
+.form-compact h2 { font-size: 16px !important; margin: 0 0 14px 0 !important; }
+.form-compact .form-group { margin-bottom: 10px; }
+.form-compact .field-label { font-size: 11px; margin-bottom: 4px; }
+.form-compact .input-field { height: 38px; font-size: 13px; padding: 6px 10px; }
+.form-compact .people-row { gap: 8px; padding: 4px 0; }
+.form-compact .person { width: 28px; height: 28px; font-size: 10px; }
+.form-compact .btn-confirm { padding: 12px; font-size: 14px; border-radius: 10px; margin-top: 8px; }
+.form-compact .btn-cancel { padding: 6px; font-size: 12px; }
+.form-compact .btn-delete { padding: 12px; font-size: 14px; border-radius: 10px; margin-top: 4px; }
+.form-compact .settled-toggle { padding: 6px 0 2px; }
+.form-compact .settled-slider { width: 36px; height: 22px; border-radius: 11px; }
+.form-compact .settled-slider::after { width: 16px; height: 16px; }
+.form-compact .settled-toggle input:checked + .settled-slider::after { transform: translateX(14px); }
+.form-compact .settled-label { font-size: 12px; }
 .settled-toggle { display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; padding:14px 0 4px; }
 .settled-toggle input { display:none; }
 .settled-slider { position:relative; width:44px; height:26px; background:#ddd; border-radius:13px; flex-shrink:0; transition:background .2s; }
@@ -403,8 +419,8 @@ function openAdd(id = null) {
     shared = e ? [...e.shared] : [];
 
     document.getElementById("expenses-content").innerHTML = `
-    <div class="card">
-        <h2 style="font-family:'Playfair Display'; margin:0 0 25px 0;">${e ? 'Amend' : 'New'} Expense</h2>
+    <div class="card form-compact">
+        <h2 style="font-family:'Playfair Display';">${e ? 'Amend' : 'New'} Expense</h2>
 
         <div class="form-row">
             <div>
@@ -526,20 +542,17 @@ async function saveData() {
 
 async function deleteExpense(id) {
     if (!confirm('Delete this expense?')) return;
-    // Optimistically hide the entry immediately
-    expenses = expenses.filter(e => e.id !== id);
-    renderExpView(true);
-    // Send delete to sheet
-    await fetch(SCRIPT_URL, {
+    fetch(SCRIPT_URL, {
         method: "POST", mode: "no-cors",
         body: JSON.stringify({ action: 'delete', sheet: 'Expenses', rowIndex: id + 2 })
     });
-    // Re-fetch after a short delay so local ids stay in sync with the sheet
-    // (avoids amending the wrong row after a delete)
-    setTimeout(async () => {
-        localStorage.removeItem('cache_v10_Expenses');
-        await renderExpView(false);
-    }, 2000);
+    // Remove deleted row and shift ids of all rows that came after it down by 1
+    // so they still match the correct sheet row numbers without needing a re-fetch
+    expenses = expenses
+        .filter(e => e.id !== id)
+        .map(e => e.id > id ? { ...e, id: e.id - 1 } : e);
+    localStorage.removeItem('cache_v10_Expenses');
+    renderExpView(true);
 }
 
 async function hardRefresh() {
